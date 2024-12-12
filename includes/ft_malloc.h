@@ -1,0 +1,4 @@
+#define PAGE_SIZE 4096
+
+#define TINY_SIZE 100
+#define TINY_ZONE TINY_SIZE * 100
