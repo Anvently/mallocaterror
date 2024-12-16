@@ -1,10 +1,10 @@
-NAME		=	ft_malloc
+NAME		=	libft_malloc.so
 
 INCLUDES	=	includes/
 SRCS_FOLDER	=	srcs/
 OBJS_FOLDER	=	.objs/
 
-SRCS_FILES	=	main.c
+SRCS_FILES	=	alloc.c arena.c ft_malloc.c
 
 OBJS		=	$(addprefix $(OBJS_FOLDER),$(SRCS_FILES:.c=.o))
 SRCS		=	$(addprefix $(SRCS_FOLDER),$(SRCS_FILES))
@@ -14,6 +14,7 @@ LIBFT		=	libft/libft.a
 
 CC			=	gcc
 CFLAGS		=	-Wall -Wextra -Werror -g3 -MMD -I$(INCLUDES)
+LDFLAGS		=	-shared -Wl,-soname,libft_malloc.so
 
 .PHONY		=	all clean fclean re bonus
 
@@ -23,7 +24,7 @@ all: $(NAME)
 
 $(NAME): $(LIBFT) $(OBJS)
 	@echo "\n-----COMPILING $(NAME)-------\n"
-	$(CC) $(CFLAGS) $(OBJS) -o $(NAME) -Llibft/ -lft
+	$(CC) $(LDFLAGS) $(CFLAGS) $(OBJS) $(LIBFT) -o $(NAME)
 	@echo "Executable has been successfully created."
 
 
@@ -43,6 +44,10 @@ $(LIBFT): $(INCLUDES)libft.h
 	make -C libft/
 	make clean -C libft/
 	@echo "\n\n"
+
+test: $(NAME) srcs/main.c
+	$(CC) $(CFLAGS) srcs/main.c -c -o .objs/main.o
+	$(CC) $(CFLAGS) .objs/main.o -Llibft/ -lft -L. -lft_malloc
 
 update-submodules:
 	git submodule update --init --recursive
