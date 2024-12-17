@@ -4,7 +4,7 @@
 
 int	main(void) {
 	printf("%ld\n", sysconf(_SC_PAGE_SIZE));
-	void* test = malloc(16);
+	void* test = ft_malloc(16);
 	(void) test;
 	return (0);
 }

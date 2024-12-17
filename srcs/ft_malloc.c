@@ -24,7 +24,7 @@ x86
 size = 24 (chunk = 8 + 24 = 32)
 
 */
-void*	malloc(size_t size) {
+void*	ft_malloc(size_t size) {
 	void*	arena_addr;
 	void*	ret = NULL;
 
@@ -52,7 +52,7 @@ void*	malloc(size_t size) {
 }
 
 
-void	free(void* ptr) {
+void	ft_free(void* ptr) {
 	t_chunk_hdr*	hdr;
 
 	if (ptr == NULL)

@@ -84,6 +84,6 @@ typedef	struct s_arena_affinity {
 // #define CHUNK_IS_LAST(heap_size, chunk)((uintptr_t)(chunk) + CHUNK_SIZE((chunk)->u.free.size.raw) + CHUNK_HDR_SIZE >= (uintptr_t)(chunk) & ~((heap_size) - 1))
 #define CHUNK_PREV_IS_FREE(chunk_hdr)(chunk_hdr->u.free.size.flags.prev_used == 0)
 
-void	free(void *ptr);
-void	*malloc(size_t size);
-void	*realloc(void *ptr, size_t size);
+void	ft_free(void *ptr);
+void	*ft_malloc(size_t size);
+void	*ft_realloc(void *ptr, size_t size);

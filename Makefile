@@ -1,4 +1,4 @@
-NAME		=	libft_malloc.so
+NAME		=	libft_malloc
 
 INCLUDES	=	includes/
 SRCS_FOLDER	=	srcs/
@@ -13,18 +13,25 @@ DEPS		=	$(addprefix $(OBJS_FOLDER), $(SRCS_FILES:.cpp=.d))
 LIBFT		=	libft/libft.a
 
 CC			=	gcc
-CFLAGS		=	-Wall -Wextra -Werror -g3 -MMD -I$(INCLUDES)
-LDFLAGS		=	-shared -Wl,-soname,libft_malloc.so
+CFLAGS		=	-Wall -Wextra -Werror -g3 -fsanitize=address -MMD -I$(INCLUDES)
+LDFLAGS		=	-shared
 
 .PHONY		=	all clean fclean re bonus
 
+ifeq ($(HOSTTYPE),)
+	HOSTTYPE := $(shell uname -m)_$(shell uname -s)
+endif
+
+TARGET		=	$(NAME)_$(HOSTTYPE).so
+
 -include	$(wildcard *.d)
 
-all: $(NAME)
+all: $(TARGET)
 
-$(NAME): $(LIBFT) $(OBJS)
+$(TARGET): $(LIBFT) $(OBJS)
 	@echo "\n-----COMPILING $(NAME)-------\n"
-	$(CC) $(LDFLAGS) $(CFLAGS) $(OBJS) $(LIBFT) -o $(NAME)
+	$(CC) $(LDFLAGS) $(CFLAGS) $(OBJS) $(LIBFT) -o $(TARGET)
+	ln -sf $(TARGET) $(NAME).so
 	@echo "Executable has been successfully created."
 
 
@@ -45,9 +52,9 @@ $(LIBFT): $(INCLUDES)libft.h
 	make clean -C libft/
 	@echo "\n\n"
 
-test: $(NAME) srcs/main.c
+test: $(TARGET) srcs/main.c
 	$(CC) $(CFLAGS) srcs/main.c -c -o .objs/main.o
-	$(CC) $(CFLAGS) .objs/main.o -Llibft/ -lft -L. -lft_malloc
+	$(CC) $(CFLAGS) -Wl,-rpath=. .objs/main.o -Llibft/ -lft -L. -lft_malloc
 
 update-submodules:
 	git submodule update --init --recursive
