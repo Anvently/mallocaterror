@@ -28,7 +28,6 @@ void*	ft_malloc(size_t size) {
 	void*	arena_addr;
 	void*	ret = NULL;
 
-	write(1, "pouet pouet\n", 10);
 	if (size % ADDR_ALIGNMENT) //alignment: 16 bytes on x64 or 8 bytes on x86 
 		size = size - (size % (ADDR_ALIGNMENT)) + ADDR_ALIGNMENT;
 	if (size > SMALL_LIMIT)

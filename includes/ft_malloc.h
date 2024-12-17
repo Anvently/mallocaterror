@@ -45,12 +45,12 @@ typedef struct	s_chunk_hdr {
 	
 }	t_chunk_hdr;
 
-
 typedef struct	s_arena {
 	pthread_mutex_t	mutex;
 	struct s_chunk_hdr*		bins[16];
 	struct s_arena_tiny*	next_arena; // next available arena for multiple thread
 	struct s_chunk_hdr*		top_chunk; // Pointer to top chunk
+	void*					padding; // 16 bytes alignment
 }	t_arena;
 
 // Bins is an array starting from 16B with 16B steps (because of the required 16 bytes alignment),
@@ -64,8 +64,9 @@ typedef t_arena t_arena_small;
 // Heap info MUST be aligned to a 4096 page, in order to find the structure from any address.
 typedef struct	s_heap_info {
 	void*				arena; //Pointer toward associated arena
+	struct s_heap_info*	prev;
 	size_t				size;
-
+	void*				padding; // 16 bytes alignment
 }	t_heap_info;
 
 typedef	struct s_arena_affinity {
@@ -87,3 +88,5 @@ typedef	struct s_arena_affinity {
 void	ft_free(void *ptr);
 void	*ft_malloc(size_t size);
 void	*ft_realloc(void *ptr, size_t size);
+void	show_alloc_memory();
+void	dump_tiny_heap();

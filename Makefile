@@ -4,7 +4,7 @@ INCLUDES	=	includes/
 SRCS_FOLDER	=	srcs/
 OBJS_FOLDER	=	.objs/
 
-SRCS_FILES	=	alloc.c arena.c ft_malloc.c
+SRCS_FILES	=	alloc.c arena.c ft_malloc.c debug.c
 
 OBJS		=	$(addprefix $(OBJS_FOLDER),$(SRCS_FILES:.c=.o))
 SRCS		=	$(addprefix $(SRCS_FOLDER),$(SRCS_FILES))
@@ -30,7 +30,7 @@ all: $(TARGET)
 
 $(TARGET): $(LIBFT) $(OBJS)
 	@echo "\n-----COMPILING $(NAME)-------\n"
-	$(CC) $(LDFLAGS) $(CFLAGS) $(OBJS) $(LIBFT) -o $(TARGET)
+	$(CC) $(LDFLAGS) $(CFLAGS) $(OBJS) -o $(TARGET)
 	ln -sf $(TARGET) $(NAME).so
 	@echo "Executable has been successfully created."
 
