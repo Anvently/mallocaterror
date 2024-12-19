@@ -13,7 +13,7 @@ DEPS		=	$(addprefix $(OBJS_FOLDER), $(SRCS_FILES:.cpp=.d))
 LIBFT		=	libft/libft.a
 
 CC			=	gcc
-CFLAGS		=	-Wall -Wextra -Werror -g3 -fsanitize=address -MMD -I$(INCLUDES)
+CFLAGS		=	-Wall -Wextra -Werror -g3 -fsanitize=address -MMD -I$(INCLUDES) -fPIC
 LDFLAGS		=	-shared
 
 .PHONY		=	all clean fclean re bonus
@@ -30,7 +30,7 @@ all: $(TARGET)
 
 $(TARGET): $(LIBFT) $(OBJS)
 	@echo "\n-----COMPILING $(NAME)-------\n"
-	$(CC) $(LDFLAGS) $(CFLAGS) $(OBJS) -o $(TARGET)
+	$(CC) $(LDFLAGS) $(CFLAGS) $(OBJS) $(LIBFT) -o $(TARGET)
 	ln -sf $(TARGET) $(NAME).so
 	@echo "Executable has been successfully created."
 

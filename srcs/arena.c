@@ -2,7 +2,6 @@
 #include <stdint.h>
 #include <errno.h>
 
-void*			arena_take(unsigned int arena_type);
 void*			arena_alloc_small(t_arena_small* arena, size_t size);
 t_arena_tiny*	arena_create_tiny();
 t_arena_small*	arena_create_small();
@@ -55,6 +54,21 @@ t_arena_small*	arena_take_small() {
 	}
 }
 
+/// @brief Return arena ptr without locking mutex. If the arena does not
+/// exists yet (first call), do not try to allocate it.
+/// @return adress of arena stucture. NULL if failed to allocate a heap for given arena
+t_arena_tiny*	arena_get_tiny() {	
+	return (g_arenas.tiny_arena);
+}
+
+/// @brief Return arena ptr without locking mutex. If the arena does not
+/// exists yet (first call), do not try to allocate it.
+/// @return adress of arena stucture. NULL if failed to allocate a heap for given arena
+t_arena_small*	arena_get_small() {	
+	return (g_arenas.small_arena);
+}
+
+
 t_heap_info*	get_heap_info(t_chunk_hdr* hdr) {
 	long			page_size = sysconf(_SC_PAGE_SIZE);
 
@@ -69,7 +83,7 @@ t_arena*	get_arena(t_chunk_hdr* hdr) {
 	return (get_heap_info(hdr)->arena);
 }
 
-static inline t_chunk_hdr*	_chunk_forward(size_t heap_size, t_chunk_hdr* chunk) {
+t_chunk_hdr*	chunk_forward(size_t heap_size, t_chunk_hdr* chunk) {
 	t_chunk_hdr*	next;
 
 	next = (void*)chunk + CHUNK_SIZE(chunk->u.free.size.raw) + CHUNK_HDR_SIZE;
@@ -78,7 +92,7 @@ static inline t_chunk_hdr*	_chunk_forward(size_t heap_size, t_chunk_hdr* chunk) 
 	return (next);
 }
 
-static inline t_chunk_hdr*	_chunk_backward(t_chunk_hdr* chunk) {
+t_chunk_hdr*	chunk_backward(t_chunk_hdr* chunk) {
 	if (chunk->u.free.prev_size == 0)
 		return (NULL);
 	return ((void*)chunk - (chunk->u.free.prev_size + CHUNK_HDR_SIZE));
@@ -96,7 +110,7 @@ void	arena_free(t_chunk_hdr* chunk_hdr) {
 
 	pthread_mutex_lock(&arena->mutex);
 	//Mark chunk as free in the next chunk
-	next = _chunk_forward(heap_info->size, chunk_hdr);
+	next = chunk_forward(heap_info->size, chunk_hdr);
 	if (next != NULL) {
 		next->u.free.size.flags.prev_used = 0;
 		// Check if a merge is possible

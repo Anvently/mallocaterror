@@ -2,8 +2,6 @@
 #include <errno.h>
 #include <sys/mman.h>
 
-void*			arena_take_tiny();
-void*			arena_take_small();
 void			arena_free(t_chunk_hdr* chunk_hdr);
 void*			arena_alloc_small(t_arena_small* arena, size_t size);
 void*			arena_alloc_tiny(t_arena_tiny* arena, size_t size);

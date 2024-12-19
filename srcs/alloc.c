@@ -51,6 +51,7 @@ t_arena_tiny*	arena_create_tiny() {
 	if (!heap_addr)
 		return (NULL);
 	arena_addr = (t_arena_tiny*)(heap_addr + 1);
+	heap_addr->arena = arena_addr;
 	if (pthread_mutex_init(&arena_addr->mutex, NULL)) {
 		heap_unmap(heap_addr);
 		return (NULL);
@@ -69,6 +70,7 @@ t_arena_small*	arena_create_small() {
 	if (!heap_addr)
 		return (NULL);
 	arena_addr = (t_arena_small*)(heap_addr + 1);
+	heap_addr->arena = arena_addr;
 	if (pthread_mutex_init(&arena_addr->mutex, NULL)) {
 		heap_unmap(heap_addr);
 		return (NULL);

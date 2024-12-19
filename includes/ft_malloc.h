@@ -63,7 +63,7 @@ typedef t_arena t_arena_small;
 
 // Heap info MUST be aligned to a 4096 page, in order to find the structure from any address.
 typedef struct	s_heap_info {
-	void*				arena; //Pointer toward associated arena
+	t_arena*			arena; //Pointer toward associated arena
 	struct s_heap_info*	prev;
 	size_t				size;
 	void*				padding; // 16 bytes alignment
@@ -85,8 +85,27 @@ typedef	struct s_arena_affinity {
 // #define CHUNK_IS_LAST(heap_size, chunk)((uintptr_t)(chunk) + CHUNK_SIZE((chunk)->u.free.size.raw) + CHUNK_HDR_SIZE >= (uintptr_t)(chunk) & ~((heap_size) - 1))
 #define CHUNK_PREV_IS_FREE(chunk_hdr)(chunk_hdr->u.free.size.flags.prev_used == 0)
 
-void	ft_free(void *ptr);
-void	*ft_malloc(size_t size);
-void	*ft_realloc(void *ptr, size_t size);
-void	show_alloc_memory();
-void	dump_tiny_heap();
+// Take tiny arena mutex and return the arena. If it does not exist attempt to allocate it. May return NULL !
+#define TAKE_TINY_ARENA arena_take_tiny()
+/*
+* Take small arena mutex and return the arena. If it does not exist attempt to allocate it.
+* May return NULL !
+*/
+#define TAKE_SMALL_ARENA arena_take_small()
+
+
+void			ft_free(void *ptr);
+void			*ft_malloc(size_t size);
+void			*ft_realloc(void *ptr, size_t size);
+void			show_alloc_memory();
+void			dump_heap(t_arena* arena, bool has_mutex);
+void			dump_pretty_heap(t_arena* arena, bool has_mutex);
+void			dump_n_chunk(t_chunk_hdr* chunk, size_t n, bool has_mutex);
+void			dump_n_chunk_bck(t_chunk_hdr* chunk, size_t n, bool has_mutex);
+t_arena_tiny*	arena_get_tiny();
+t_arena_small*	arena_get_small();
+t_arena_tiny*	arena_take_tiny();
+t_arena_small*	arena_take_small();
+
+#define GET_TINY_ARENA arena_get_tiny()
+#define GET_SMALL_ARENA arena_get_small();

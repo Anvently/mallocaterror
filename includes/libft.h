@@ -118,6 +118,7 @@ int		ft_strtof(char *str, float *dest, char **ptr);
 int		ft_strtod(char *str, double *dest, char **ptr);
 char	*ft_itoa(int n);
 char	*ft_uitoa(unsigned int n);
+char	*ft_ltoa(long n);
 char	*ft_ultoa(unsigned long n);
 char	*ft_ultoa_base(unsigned long n, char *base);
 unsigned int	ft_putunbr_buffer(unsigned long nbr, char* buffer, unsigned int size);
@@ -303,6 +304,9 @@ typedef struct s_flags
 ///* ```x``` print a number in hexadecimal using lowercase char
 ///* ```X``` print a number in hexadecimal using uppercase char
 ///* ```%``` print '%' sign
+///* ```ld``` long int
+///* ```ls``` long signed int
+///* ```lu``` long unsigned int
 ///*
 ///* ### Value
 ///*
@@ -310,12 +314,14 @@ typedef struct s_flags
 ///* NULL if value is not assigned yet (case of %).
 typedef struct s_field
 {
-	t_flags	flags;
-	size_t	width;
-	int		precision;
-	char	type;
-	void	*value;
+	t_flags			flags;
+	size_t			width;
+	int				precision;
+	char			type; //0 => ld, 1 => lu, 2 => lx, 3 => lX
+	void*			value; //Should be able to store all type
 }			t_field;
+
+// #define FT_PRINTF_TYPE
 
 //Structure util
 
@@ -344,15 +350,14 @@ char	*parse_conversion_type(char *str, t_field *field);
 
 typedef struct s_arg_req
 {
-	size_t	index;
-	void	*dest;
-	char	type;
+	size_t			index;
+	void*			dest;
+	char			type;
 }			t_arg_req;
 
 //Struct util
 
 t_list	*new_argument_node(void);
-void	free_arg_req(void *arg_req);
 t_list	*insert_arg_req(t_list **args_req, t_list *arg_node);
 
 //Args retrieving
@@ -368,12 +373,6 @@ bool	check_type_conflict(t_arg_req *node1, t_arg_req *node2);
 bool	check_flag_conflict(t_field *field);
 bool	check_fields(t_list *fields);
 
-//Casting
-
-void	*alloc_arg_value(char type);
-void	*get_arg_value(va_list *va_args, char type);
-void	cast_to_dest(void *dest, void *value, char type);
-
 //Printing functions
 
 int		print_fields(int fd, t_list *fields);
@@ -386,7 +385,7 @@ char	*get_str_value(t_field *field);
 char	*char_to_str(char c);
 char	*address_to_str(unsigned long addr);
 char	*str_to_str(char *str);
-char	*hexa_to_str(unsigned int nbr, char type);
+char	*hexa_to_str(unsigned long nbr, char type);
 
 //Formatting
 
