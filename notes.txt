@@ -5,3 +5,11 @@ Tiny : (100 * 128 = 12.8K)
 
 Small : (64K * 100 = 6.4M)
 128B to 64k
+
+Malloc algorithm :
+ - find a free chunk in appropriate bin
+ - coalesce chunks, starting from first free chunk, stop when a chunk is big enough
+ - split top chunk
+ - if top chunk was NULL or not big enough, use previous arena
+ - if no previous arena, allocate new arena
+ - if failed, return NULL

@@ -19,6 +19,9 @@
 #define CHUNK_HDR_SIZE ADDR_ALIGNMENT
 #define CHUNK_SIZE(raw)(raw & (ULONG_MAX & ~(0b111)))
 
+#define AVOID_CONCURRENCY
+#define MAX_NBR_ARENAS 10
+
 typedef union {
 	struct {
 		size_t	mmaped:1; // If the chunk was directly mmaped
@@ -46,11 +49,15 @@ typedef struct	s_chunk_hdr {
 }	t_chunk_hdr;
 
 typedef struct	s_arena {
-	pthread_mutex_t	mutex;
+	size_t					heap_size;
+	pthread_mutex_t			mutex;
 	struct s_chunk_hdr*		bins[16];
-	struct s_arena_tiny*	next_arena; // next available arena for multiple thread
+	struct s_arena*			next_arena;
 	struct s_chunk_hdr*		top_chunk; // Pointer to top chunk
-	void*					padding; // 16 bytes alignment
+	union {
+		char				value;
+		void*				padding[2];
+	}	type;
 }	t_arena;
 
 // Bins is an array starting from 16B with 16B steps (because of the required 16 bytes alignment),
@@ -61,13 +68,11 @@ typedef t_arena t_arena_tiny;
 // chunks
 typedef t_arena t_arena_small; 
 
-// Heap info MUST be aligned to a 4096 page, in order to find the structure from any address.
-typedef struct	s_heap_info {
-	t_arena*			arena; //Pointer toward associated arena
-	struct s_heap_info*	prev;
-	size_t				size;
-	void*				padding; // 16 bytes alignment
-}	t_heap_info;
+// // Heap info MUST be aligned to a 4096 page, in order to find the structure from any address.
+// typedef struct	s_heap_info {
+// 	t_arena*			arena; //Pointer toward associated arena
+// 	size_t				size;
+// }	t_heap_info;
 
 typedef	struct s_arena_affinity {
 	t_arena_tiny*	tiny_arena;
@@ -78,20 +83,22 @@ typedef	struct s_arena_affinity {
 #define SMALL_ZONE_MIN_SIZE ((SMALL_LIMIT * 100) + (100 * sizeof(t_chunk_hdr)))  
 
 #define VALUE_ALIGNED(value, alignment) ((((value) + (alignment) - 1) / (alignment)) * (alignment))
-#define TINY_HEAP_SIZE(page_size) (VALUE_ALIGNED(TINY_ZONE_MIN_SIZE + sizeof(t_heap_info), page_size))
-#define	SMALL_HEAP_SIZE(page_size) (VALUE_ALIGNED(SMALL_ZONE_MIN_SIZE + sizeof(t_heap_info), page_size))
+#define TINY_HEAP_SIZE(page_size) (VALUE_ALIGNED(TINY_ZONE_MIN_SIZE + sizeof(t_arena), page_size))
+#define	SMALL_HEAP_SIZE(page_size) (VALUE_ALIGNED(SMALL_ZONE_MIN_SIZE + sizeof(t_arena), page_size))
 
 #define CHUNK_IS_LAST(heap, chunk_hdr)((chunk_hdr) + CHUNK_SIZE((chunk_hdr)->u.used.size.raw) + CHUNK_HDR_SIZE >= (heap) + (heap)->size)
 // #define CHUNK_IS_LAST(heap_size, chunk)((uintptr_t)(chunk) + CHUNK_SIZE((chunk)->u.free.size.raw) + CHUNK_HDR_SIZE >= (uintptr_t)(chunk) & ~((heap_size) - 1))
 #define CHUNK_PREV_IS_FREE(chunk_hdr)(chunk_hdr->u.free.size.flags.prev_used == 0)
 
 // Take tiny arena mutex and return the arena. If it does not exist attempt to allocate it. May return NULL !
-#define TAKE_TINY_ARENA arena_take_tiny()
+#define TAKE_TINY_ARENA arena_take_tiny_read()
 /*
 * Take small arena mutex and return the arena. If it does not exist attempt to allocate it.
 * May return NULL !
 */
-#define TAKE_SMALL_ARENA arena_take_small()
+#define TAKE_SMALL_ARENA arena_take_small_read()
+
+#define GET_FIRST_CHUNK(arena_ptr)((void*)(arena_ptr) + sizeof(t_arena))
 
 
 void			ft_free(void *ptr);
@@ -104,8 +111,10 @@ void			dump_n_chunk(t_chunk_hdr* chunk, size_t n, bool has_mutex);
 void			dump_n_chunk_bck(t_chunk_hdr* chunk, size_t n, bool has_mutex);
 t_arena_tiny*	arena_get_tiny();
 t_arena_small*	arena_get_small();
-t_arena_tiny*	arena_take_tiny();
-t_arena_small*	arena_take_small();
+t_arena_tiny*	arena_take_tiny_write();
+t_arena_small*	arena_take_small_write();
+t_arena_tiny*	arena_take_tiny_read(t_arena_tiny* arena);
+t_arena_small*	arena_take_small_read(t_arena_small* arena);
 
 #define GET_TINY_ARENA arena_get_tiny()
 #define GET_SMALL_ARENA arena_get_small();

@@ -15,8 +15,8 @@ static size_t	nearest_2_power(size_t size) {
 /// start address will be aligned to the computed size.
 /// @param size 
 /// @return 
-t_heap_info*	heap_map(size_t size) {
-	t_heap_info*	heap;
+void*	heap_map(size_t size) {
+	t_arena*		heap;
 	size_t			aligned_size;
 	uintptr_t		align_addr;
 	long			page_size = sysconf(_SC_PAGE_SIZE);
@@ -34,51 +34,31 @@ t_heap_info*	heap_map(size_t size) {
 		munmap(raw_addr, align_addr - (uintptr_t)raw_addr);
 	//Unmap trailing memory mapping
 	munmap((void*)align_addr + aligned_size, (aligned_size * 2) - ((align_addr - (uintptr_t)raw_addr)) - aligned_size);
-	heap = (t_heap_info*)align_addr;
-	heap->size = aligned_size;
+	heap = (t_arena*)align_addr;
+	heap->heap_size = aligned_size;
 	return (heap);
 }
 
-void	heap_unmap(t_heap_info* heap_info) {
-	munmap(heap_info, heap_info->size);
+void	heap_unmap(t_arena* heap) {
+	munmap(heap, heap->heap_size);
 }
 
-t_arena_tiny*	arena_create_tiny() {
-	t_heap_info*	heap_addr;
-	t_arena_tiny*	arena_addr;
+t_arena*	arena_create(size_t min_size) {
+	void*			heap_addr;
+	t_arena*		arena;
 
-	heap_addr = heap_map(TINY_ZONE_MIN_SIZE + sizeof(t_arena_small)  + sizeof(t_heap_info));
+	heap_addr = heap_map(min_size + sizeof(t_arena));
 	if (!heap_addr)
 		return (NULL);
-	arena_addr = (t_arena_tiny*)(heap_addr + 1);
-	heap_addr->arena = arena_addr;
-	if (pthread_mutex_init(&arena_addr->mutex, NULL)) {
+	arena = (t_arena*)heap_addr;
+	if (pthread_mutex_init(&arena->mutex, NULL)) {
 		heap_unmap(heap_addr);
 		return (NULL);
 	}
-	arena_addr->top_chunk = (t_chunk_hdr*)(arena_addr + 1);
-	arena_addr->top_chunk->u.free.prev_size = 0;
-	arena_addr->top_chunk->u.free.size.raw = heap_addr->size - sizeof(t_heap_info) - sizeof(t_arena_tiny) - CHUNK_HDR_SIZE;
-	return (arena_addr);
-}
-
-t_arena_small*	arena_create_small() {
-	t_heap_info*	heap_addr;
-	t_arena_small*	arena_addr;
-
-	heap_addr = heap_map(sizeof(t_heap_info) + sizeof(t_arena_small) + SMALL_ZONE_MIN_SIZE);
-	if (!heap_addr)
-		return (NULL);
-	arena_addr = (t_arena_small*)(heap_addr + 1);
-	heap_addr->arena = arena_addr;
-	if (pthread_mutex_init(&arena_addr->mutex, NULL)) {
-		heap_unmap(heap_addr);
-		return (NULL);
-	}
-	arena_addr->top_chunk = (t_chunk_hdr*)(arena_addr + 1);
-	arena_addr->top_chunk->u.free.prev_size = 0;
-	arena_addr->top_chunk->u.free.size.raw = heap_addr->size - sizeof(t_heap_info) - sizeof(t_arena_small);
-	return (arena_addr);
+	arena->top_chunk = (t_chunk_hdr*)(arena + 1);
+	arena->top_chunk->u.free.prev_size = 0;
+	arena->top_chunk->u.free.size.raw = arena->heap_size - sizeof(t_arena) - CHUNK_HDR_SIZE;
+	return (arena);
 }
 
 void*	alloc_mmaped(size_t size) {

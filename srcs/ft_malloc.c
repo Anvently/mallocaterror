@@ -7,7 +7,6 @@ void*			arena_alloc_small(t_arena_small* arena, size_t size);
 void*			arena_alloc_tiny(t_arena_tiny* arena, size_t size);
 void*			alloc_mmaped(size_t size);
 
-
 /*
 size = 10
 x64
@@ -31,13 +30,13 @@ void*	ft_malloc(size_t size) {
 	if (size > SMALL_LIMIT)
 		ret = alloc_mmaped(size);
 	else if (size > TINY_LIMIT) {
-		arena_addr = arena_take_small();
+		arena_addr = arena_take_small_write();
 		if (arena_addr)
 			ret = arena_alloc_small((t_arena_small*)arena_addr, size);
 	} else {
 		if (size < TINY_MIN)
 			size = TINY_MIN;
-		arena_addr = arena_take_tiny();
+		arena_addr = arena_take_tiny_write();
 		if (arena_addr)
 			ret = arena_alloc_tiny((t_arena_tiny*)arena_addr, size);
 	}
