@@ -3,7 +3,6 @@
 #include <libft.h>
 #include <memory.h>
 
-size_t			get_heap_size(t_chunk_hdr* hdr);
 t_arena*		get_arena(t_chunk_hdr* hdr);
 t_chunk_hdr*	chunk_forward(size_t heap_size, t_chunk_hdr* chunk);
 t_chunk_hdr*	chunk_backward(t_chunk_hdr* chunk);
@@ -34,10 +33,9 @@ static void	print_chars(const char* buffer, size_t len) {
 static void	_hexdump_color_heap(void* start_addr, size_t n_chunk) {
 	size_t				n_entry_line, offset, i;
 	char				spaces[64] = {' '};
-	static const char*	colors[3] = {TERM_CL_MAGENTA, TERM_CL_RED, TERM_CL_YELLOW};
+	static const char*	color_used = TERM_CL_MAGENTA;
 	static const char*	free_color = TERM_CL_GREEN;
-	int					color_index = 0;
-	static const char*	color = TERM_CL_BLUE;
+	const char*			color;
 	t_chunk_hdr*		current_chunk = NULL, *next = NULL;
 	t_arena*			heap;
 
@@ -59,9 +57,7 @@ static void	_hexdump_color_heap(void* start_addr, size_t n_chunk) {
 				write(1, "  ", 2);
 			else
 				write(1, " ", 1);
-			if (data + i < (void*)heap + sizeof(size_t)) { // If heap size
-				write(1, TERM_CL_BLUE, 6);
-			} else if  (data + i < (void*)heap + sizeof(t_arena)) { // If arena header
+			if  (data + i < (void*)heap + sizeof(t_arena)) { // If arena header
 				write(1, TERM_CL_RED, 6);
 			}
 			else {
@@ -76,10 +72,8 @@ static void	_hexdump_color_heap(void* start_addr, size_t n_chunk) {
 					if (((uintptr_t)next >= ((uintptr_t)(current_chunk) & ~((heap->heap_size) - 1)) + heap->heap_size) || // If chunk is last
 						next->u.used.size.flags.prev_used == false) // or is free
 						color = free_color;
-					else {
-						color = colors[color_index];
-						color_index = (color_index + 1) % 3;
-					}
+					else
+						color = color_used;
 				}
 				if (data + i < (void*)current_chunk + CHUNK_HDR_SIZE) //If chunk header
 					write(1, TERM_CL_CYAN, 6);
@@ -179,10 +173,13 @@ void	dump_n_chunk_bck(t_chunk_hdr* chunk, size_t n, bool has_mutex) {
 	heap = get_arena(chunk);
 	if (has_mutex == false)
 		pthread_mutex_lock(&heap->mutex);
-	for (i = n; i > 1 && chunk; i--) {
+	for (i = n; i > 0 && chunk; i--) {
 		chunk = chunk_backward(chunk);
 	}
-	_hexdump_color_heap((chunk ? (void*)chunk : heap), n);
+	if (chunk)
+		_hexdump_color_heap((void*)chunk, n);
+	else
+		_hexdump_color_heap(heap, n - i - 1);
 	if (has_mutex == false)
 		pthread_mutex_unlock(&heap->mutex);
 }

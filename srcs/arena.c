@@ -3,7 +3,7 @@
 #include <errno.h>
 
 void*			arena_alloc_small(t_arena_small* arena, size_t size);
-t_arena_tiny*	arena_create(size_t min_size);
+t_arena_tiny*	arena_create(char type);
 void*			alloc_mmaped(size_t size);
 
 static t_arena_addr				g_arenas = {0};
@@ -26,7 +26,7 @@ t_arena_tiny*	arena_take_tiny_write() {
 		if (!g_arenas.tiny_arena) {
 			switch (pthread_mutex_trylock(&arena_alloc_lock)) {
 				case 0:
-					g_arenas.tiny_arena = arena_create(TINY_ZONE_MIN_SIZE);
+					g_arenas.tiny_arena = arena_create(CHUNK_TINY);
 					pthread_mutex_unlock(&arena_alloc_lock);
 					if (g_arenas.tiny_arena == NULL)
 						return (NULL);
@@ -55,7 +55,7 @@ t_arena_tiny*	arena_take_tiny_write() {
 			return (thread_arenas.tiny_arena);
 
 		case EBUSY:
-			new_arena = arena_create(TINY_ZONE_MIN_SIZE);
+			new_arena = arena_create(CHUNK_TINY);
 			if (new_arena == NULL) {
 				pthread_mutex_lock(&thread_arenas.tiny_arena->mutex);
 				return (thread_arenas.tiny_arena);
@@ -86,7 +86,7 @@ t_arena_small*	arena_take_small_write() {
 		if (!g_arenas.small_arena) {
 			switch (pthread_mutex_trylock(&arena_alloc_lock)) {
 				case 0:
-					g_arenas.small_arena = arena_create(SMALL_ZONE_MIN_SIZE);
+					g_arenas.small_arena = arena_create(CHUNK_SMALL);
 					pthread_mutex_unlock(&arena_alloc_lock);
 					if (g_arenas.small_arena == NULL)
 						return (NULL);
@@ -115,7 +115,7 @@ t_arena_small*	arena_take_small_write() {
 			return (thread_arenas.small_arena);
 
 		case EBUSY:
-			new_arena = arena_create(SMALL_ZONE_MIN_SIZE);
+			new_arena = arena_create(CHUNK_SMALL);
 			if (new_arena == NULL) {
 				pthread_mutex_lock(&thread_arenas.small_arena->mutex);
 				return (thread_arenas.small_arena);
@@ -171,17 +171,11 @@ t_arena_small*	arena_get_small() {
 
 
 t_arena*	get_arena(t_chunk_hdr* hdr) {
-	long			page_size = sysconf(_SC_PAGE_SIZE);
-
 	if (hdr->u.used.size.flags.type == CHUNK_TINY) {
-		return ((t_arena*)((uintptr_t)hdr & ~(TINY_HEAP_SIZE(page_size) - 1)));
+		return ((t_arena*)((uintptr_t)hdr & ~(get_heap_size(CHUNK_TINY) - 1)));
 	} else {
-		return ((t_arena*)((uintptr_t)hdr & ~(SMALL_HEAP_SIZE(page_size) - 1)));
+		return ((t_arena*)((uintptr_t)hdr & ~(get_heap_size(CHUNK_SMALL) - 1)));
 	}
-}
-
-size_t	get_heap_size(t_chunk_hdr* hdr) {
-	return (get_arena(hdr)->heap_size);
 }
 
 t_chunk_hdr*	chunk_forward(size_t heap_size, t_chunk_hdr* chunk) {
@@ -258,6 +252,7 @@ static	void*	_split_top_chunk(t_arena* arena, size_t size) {
 	chunk = _split_chunk(arena->top_chunk, size);
 	if (chunk == NULL)
 		return (NULL);
+	chunk->u.used.size.flags.type = (size <= TINY_LIMIT ? CHUNK_TINY : CHUNK_SMALL);
 	if (chunk != arena->top_chunk) {
 		chunk->u.used.size.flags.prev_used = 1;
 		arena->top_chunk = chunk;
@@ -271,25 +266,29 @@ static	void*	_split_top_chunk(t_arena* arena, size_t size) {
 t_arena*	_alloc_new_arena(t_arena* arena) {
 	t_arena*	new_arena;
 
-	new_arena = arena_create(arena->heap_size - sizeof(t_arena));
+	new_arena = arena_create(arena->type.value);
 	if (new_arena == NULL)
 		return (NULL);
 	arena->next_arena = new_arena;
 	return (arena);
 }
 
-void*	arena_alloc_tiny(t_arena_tiny* arena, size_t size) {
+void*	arena_alloc(t_arena* arena, size_t size) {
 	void*	content_addr;
 
 	//Search for a free chunk in the appropriate bin
 	//Coalesce chunks, starting from first free chunk, stop at first big enough
 	// If no match, split top chunk
-	if (arena->top_chunk != NULL && (content_addr = _split_top_chunk(arena, size)) != NULL)
+	if (arena->top_chunk != NULL && (content_addr = _split_top_chunk(arena, size)) != NULL) {
+		pthread_mutex_unlock(&((t_arena*)arena)->mutex);
 		return (content_addr);
+	}
 	if (arena->next_arena || (_alloc_new_arena(arena)) != NULL) {
 		pthread_mutex_lock(&arena->next_arena->mutex);
 		pthread_mutex_unlock(&arena->mutex);
-		arena_alloc_tiny(arena->next_arena, size);
+		content_addr = arena_alloc(arena->next_arena, size);
+		pthread_mutex_unlock(&arena->next_arena->mutex);
+		return (content_addr);
 	}
 	return (NULL);
 }

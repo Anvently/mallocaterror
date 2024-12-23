@@ -3,8 +3,7 @@
 #include <sys/mman.h>
 
 void			arena_free(t_chunk_hdr* chunk_hdr);
-void*			arena_alloc_small(t_arena_small* arena, size_t size);
-void*			arena_alloc_tiny(t_arena_tiny* arena, size_t size);
+void*			arena_alloc(t_arena* arena, size_t size);
 void*			alloc_mmaped(size_t size);
 
 /*
@@ -32,16 +31,14 @@ void*	ft_malloc(size_t size) {
 	else if (size > TINY_LIMIT) {
 		arena_addr = arena_take_small_write();
 		if (arena_addr)
-			ret = arena_alloc_small((t_arena_small*)arena_addr, size);
+			ret = arena_alloc((t_arena_small*)arena_addr, size);
 	} else {
 		if (size < TINY_MIN)
 			size = TINY_MIN;
 		arena_addr = arena_take_tiny_write();
 		if (arena_addr)
-			ret = arena_alloc_tiny((t_arena_tiny*)arena_addr, size);
+			ret = arena_alloc((t_arena_tiny*)arena_addr, size);
 	}
-	if (arena_addr)
-		pthread_mutex_unlock(&((t_arena_small*)arena_addr)->mutex);
 	if (ret == NULL)
 		errno = ENOMEM;
 	return (ret);

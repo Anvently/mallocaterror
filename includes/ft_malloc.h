@@ -79,6 +79,12 @@ typedef	struct s_arena_affinity {
 	t_arena_small*	small_arena;
 }	t_arena_addr;
 
+typedef struct s_malloc_config {
+	size_t	page_size;
+	size_t	tiny_heap_size;
+	size_t	small_heap_size;
+}	t_malloc_config;
+
 #define TINY_ZONE_MIN_SIZE ((TINY_LIMIT * 100) + (100 * sizeof(t_chunk_hdr)))  
 #define SMALL_ZONE_MIN_SIZE ((SMALL_LIMIT * 100) + (100 * sizeof(t_chunk_hdr)))  
 
@@ -87,7 +93,6 @@ typedef	struct s_arena_affinity {
 #define	SMALL_HEAP_SIZE(page_size) (VALUE_ALIGNED(SMALL_ZONE_MIN_SIZE + sizeof(t_arena), page_size))
 
 #define CHUNK_IS_LAST(heap, chunk_hdr)((chunk_hdr) + CHUNK_SIZE((chunk_hdr)->u.used.size.raw) + CHUNK_HDR_SIZE >= (heap) + (heap)->size)
-// #define CHUNK_IS_LAST(heap_size, chunk)((uintptr_t)(chunk) + CHUNK_SIZE((chunk)->u.free.size.raw) + CHUNK_HDR_SIZE >= (uintptr_t)(chunk) & ~((heap_size) - 1))
 #define CHUNK_PREV_IS_FREE(chunk_hdr)(chunk_hdr->u.free.size.flags.prev_used == 0)
 
 // Take tiny arena mutex and return the arena. If it does not exist attempt to allocate it. May return NULL !
@@ -116,5 +121,7 @@ t_arena_small*	arena_take_small_write();
 t_arena_tiny*	arena_take_tiny_read(t_arena_tiny* arena);
 t_arena_small*	arena_take_small_read(t_arena_small* arena);
 
+size_t			get_heap_size(int type);
+
 #define GET_TINY_ARENA arena_get_tiny()
-#define GET_SMALL_ARENA arena_get_small();
+#define GET_SMALL_ARENA arena_get_small()

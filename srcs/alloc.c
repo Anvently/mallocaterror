@@ -10,32 +10,45 @@ static size_t	nearest_2_power(size_t size) {
 	return (n);
 }
 
-/// @brief Map into a memory a new heap satisfying ```size``` requirement. The
-/// actual size of the heap will be rounded to the nearest power of 2 and the heap
-/// start address will be aligned to the computed size.
-/// @param size 
+size_t	get_heap_size(int type) {
+	static long	page_size = 0;
+	static size_t	tiny_heap_size = 0;
+	static size_t	small_heap_size = 0;
+
+	if (page_size == 0) {
+		page_size = sysconf(_SC_PAGE_SIZE);
+		tiny_heap_size = nearest_2_power(TINY_ZONE_MIN_SIZE + sizeof(t_arena));
+		if (tiny_heap_size % page_size) // If size > 4096, value should already be aligned
+			tiny_heap_size = VALUE_ALIGNED(tiny_heap_size, page_size); // Align size on page_size
+		small_heap_size = nearest_2_power(SMALL_ZONE_MIN_SIZE + sizeof(t_arena));
+		if (small_heap_size % page_size) // If size > 4096, value should already be aligned
+			small_heap_size = VALUE_ALIGNED(small_heap_size, page_size); // Align size on page_size
+	}
+	if (type == CHUNK_TINY)
+		return (tiny_heap_size);
+	return (small_heap_size);
+}
+
+/// @brief Map into a memory a new heap satisfying ```size``` requirement. 
+/// @param size The size of the heap must be a power power of 2 and the heap
+/// start address will be aligned to the given size.
 /// @return 
 void*	heap_map(size_t size) {
 	t_arena*		heap;
-	size_t			aligned_size;
 	uintptr_t		align_addr;
-	long			page_size = sysconf(_SC_PAGE_SIZE);
 	void*			raw_addr;
 
-	aligned_size = nearest_2_power(size);
-	if (aligned_size % page_size) // If size > 4096, value should already be aligned
-		aligned_size = VALUE_ALIGNED(size, page_size); // Align size on page_size
-	raw_addr = mmap(NULL, aligned_size * 2, PROT_WRITE | PROT_READ, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	raw_addr = mmap(NULL, size * 2, PROT_WRITE | PROT_READ, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 	if (raw_addr == MAP_FAILED)
 		return (NULL);
-	align_addr = (((uintptr_t)raw_addr + aligned_size - 1) & ~(aligned_size - 1)); //Align address on heap_size
+	align_addr = (((uintptr_t)raw_addr + size - 1) & ~(size - 1)); //Align address on heap_size
 	//Unmap leading memory mapping
 	if (align_addr != (uintptr_t) raw_addr)
 		munmap(raw_addr, align_addr - (uintptr_t)raw_addr);
 	//Unmap trailing memory mapping
-	munmap((void*)align_addr + aligned_size, (aligned_size * 2) - ((align_addr - (uintptr_t)raw_addr)) - aligned_size);
+	munmap((void*)align_addr + size, (size * 2) - ((align_addr - (uintptr_t)raw_addr)) - size);
 	heap = (t_arena*)align_addr;
-	heap->heap_size = aligned_size;
+	heap->heap_size = size;
 	return (heap);
 }
 
@@ -43,11 +56,11 @@ void	heap_unmap(t_arena* heap) {
 	munmap(heap, heap->heap_size);
 }
 
-t_arena*	arena_create(size_t min_size) {
+t_arena*	arena_create(char type) {
 	void*			heap_addr;
 	t_arena*		arena;
 
-	heap_addr = heap_map(min_size + sizeof(t_arena));
+	heap_addr = heap_map(get_heap_size(type));
 	if (!heap_addr)
 		return (NULL);
 	arena = (t_arena*)heap_addr;
@@ -58,6 +71,7 @@ t_arena*	arena_create(size_t min_size) {
 	arena->top_chunk = (t_chunk_hdr*)(arena + 1);
 	arena->top_chunk->u.free.prev_size = 0;
 	arena->top_chunk->u.free.size.raw = arena->heap_size - sizeof(t_arena) - CHUNK_HDR_SIZE;
+	arena->type.value = type;
 	return (arena);
 }
 
@@ -71,7 +85,3 @@ void*	alloc_mmaped(size_t size) {
 	chunk->u.used.size.flags.mmaped = 1;
 	return (&chunk->u.used.payload);
 }
-
-// t_arena*	_take_arena_from_heap(void* ptr) {
-// 	t_heap_info*	heap_info = ptr & ~(VALUE_ALIGNED())
-// }
