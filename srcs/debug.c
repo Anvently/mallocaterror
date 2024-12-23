@@ -7,6 +7,11 @@ t_arena*		get_arena(t_chunk_hdr* hdr);
 t_chunk_hdr*	chunk_forward(size_t heap_size, t_chunk_hdr* chunk);
 t_chunk_hdr*	chunk_backward(t_chunk_hdr* chunk);
 
+static pthread_mutex_t	print_lock = PTHREAD_MUTEX_INITIALIZER;
+
+#define LOCK_PRINT (pthread_mutex_lock(&print_lock))
+#define UNLOCK_PRINT (pthread_mutex_unlock(&print_lock))
+
 static void	printHexa(const void* data, int size)
 {
 	uint8_t	byte;
@@ -105,12 +110,15 @@ static void	_print_heap_address(t_arena* arena) {
 void	show_alloc_memory() {
 	t_arena*		arena;
 
+	LOCK_PRINT;
 	ft_putendl_fd("Tiny heaps:", 1);
 	arena = arena_take_tiny_read(NULL);
 	while (arena) {
 		_print_heap_address(arena);
 		pthread_mutex_unlock(&arena->mutex);
 		arena = arena->next_arena;
+		if (arena)
+			pthread_mutex_lock(&arena->mutex);
 	}
 	ft_putendl_fd("\nsmall heaps:", 1);
 	arena = arena_take_small_read(NULL);
@@ -118,20 +126,27 @@ void	show_alloc_memory() {
 		_print_heap_address(arena);
 		pthread_mutex_unlock(&arena->mutex);
 		arena = arena->next_arena;
+		if (arena)
+			pthread_mutex_lock(&arena->mutex);
 	}
+	UNLOCK_PRINT;
 }
 
 void	dump_heap(t_arena* arena, bool has_mutex) {
+	LOCK_PRINT;
 	if (arena == NULL) {
 		ft_putendl_fd("\nError: cannot dump null heap", 2);
+		UNLOCK_PRINT;
 		return;
 	}
 	ft_hexdump(0x00, arena->heap_size, 1, (size_t)&arena);
 	if (has_mutex == false)
 		pthread_mutex_unlock(&arena->mutex);
+	UNLOCK_PRINT;
 }
 
 void	dump_pretty_heap(t_arena* arena, bool has_mutex) {
+	LOCK_PRINT;
 	if (arena == NULL) {
 		ft_putendl_fd("\nError: cannot dump null heap", 2);
 		return;
@@ -139,6 +154,7 @@ void	dump_pretty_heap(t_arena* arena, bool has_mutex) {
 	_hexdump_color_heap((void*)&arena, -1);
 	if (has_mutex == false)
 		pthread_mutex_unlock(&arena->mutex);
+	UNLOCK_PRINT;
 }
 
 /// @brief 
@@ -147,8 +163,10 @@ void	dump_pretty_heap(t_arena* arena, bool has_mutex) {
 void	dump_n_chunk(t_chunk_hdr* chunk, size_t n, bool has_mutex) {
 	t_arena*	heap;
 
+	LOCK_PRINT;
 	if (chunk == NULL) {
 		ft_putendl_fd("\nError: cannot dump null chunk", 2);
+		UNLOCK_PRINT;
 		return;
 	}
 	heap = get_arena(chunk);
@@ -157,6 +175,7 @@ void	dump_n_chunk(t_chunk_hdr* chunk, size_t n, bool has_mutex) {
 	_hexdump_color_heap(chunk, n);
 	if (has_mutex == false)
 		pthread_mutex_unlock(&heap->mutex);
+	UNLOCK_PRINT;
 }
 
 /// @brief 
@@ -166,8 +185,10 @@ void	dump_n_chunk_bck(t_chunk_hdr* chunk, size_t n, bool has_mutex) {
 	t_arena*		heap;
 	size_t			i;
 
+	LOCK_PRINT;
 	if (chunk == NULL) {
 		ft_putendl_fd("\nError: cannot dump null chunk", 2);
+		UNLOCK_PRINT;
 		return;
 	}
 	heap = get_arena(chunk);
@@ -182,5 +203,6 @@ void	dump_n_chunk_bck(t_chunk_hdr* chunk, size_t n, bool has_mutex) {
 		_hexdump_color_heap(heap, n - i - 1);
 	if (has_mutex == false)
 		pthread_mutex_unlock(&heap->mutex);
+	UNLOCK_PRINT;
 }
 
