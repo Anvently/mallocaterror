@@ -79,44 +79,40 @@ t_arena_small*	arena_take_small_write() {
 #endif
 
 	if (!thread_arenas.small_arena) {
+		pthread_mutex_lock(&arena_alloc_lock);
 		if (!g_arenas.small_arena) {
-			switch (pthread_mutex_trylock(&arena_alloc_lock)) {
-				case 0:	
-					g_arenas.small_arena = arena_create(CHUNK_SMALL);
-					pthread_mutex_unlock(&arena_alloc_lock);
-					if (g_arenas.small_arena == NULL)
-						return (NULL);
-					return (arena_take_small_write());
-
-				case EBUSY:
-					return (arena_take_small_write());
-
-				default:
-					return (NULL);
-			}
+			g_arenas.small_arena = arena_create(CHUNK_SMALL);
+			pthread_mutex_unlock(&arena_alloc_lock);
+			if (g_arenas.small_arena == NULL)
+				return (NULL);
+		} else {
+			pthread_mutex_unlock(&arena_alloc_lock);
 		}
 		thread_arenas.small_arena = g_arenas.small_arena;
-		return (arena_take_small_write());
 	}
 #ifndef AVOID_CONCURRENCY
 	pthread_mutex_lock(&thread_arenas.small_arena->mutex);
 	return (thread_arenas.small_arena);
 #else // Thread arena will be substitute with a thread one if a thread concurrency is detected
-	if (nbr_extra_arenas > MAX_NBR_ARENAS) {
-		pthread_mutex_lock(&thread_arenas.small_arena->mutex);
-		return (thread_arenas.small_arena);
-	}
 	switch (pthread_mutex_trylock(&thread_arenas.small_arena->mutex)) {
 		case 0:
 			return (thread_arenas.small_arena);
 
 		case EBUSY:
+			pthread_mutex_lock(&arena_alloc_lock);
+			if (nbr_extra_arenas > MAX_NBR_ARENAS) {
+				pthread_mutex_unlock(&arena_alloc_lock);
+				pthread_mutex_lock(&thread_arenas.small_arena->mutex);
+				return (thread_arenas.small_arena);
+			}
 			new_arena = arena_create(CHUNK_SMALL);
 			if (new_arena == NULL) {
+				pthread_mutex_unlock(&arena_alloc_lock);
 				pthread_mutex_lock(&thread_arenas.small_arena->mutex);
 				return (thread_arenas.small_arena);
 			}
 			nbr_extra_arenas++;
+			pthread_mutex_unlock(&arena_alloc_lock);
 			pthread_mutex_lock(&new_arena->mutex);
 			thread_arenas.small_arena = new_arena;
 			return (new_arena);

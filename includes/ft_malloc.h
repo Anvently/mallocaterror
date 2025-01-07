@@ -19,7 +19,7 @@
 #define CHUNK_HDR_SIZE ADDR_ALIGNMENT
 #define CHUNK_SIZE(raw)(raw & (ULONG_MAX & ~(0b111)))
 
-#define AVOID_CONCURRENCY
+// #define AVOID_CONCURRENCY
 #define MAX_NBR_ARENAS 10
 
 typedef union {

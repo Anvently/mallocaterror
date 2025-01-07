@@ -108,26 +108,30 @@ static void	_print_heap_address(t_arena* arena) {
 
 /// @brief Print allocated heap
 void	show_alloc_memory() {
-	t_arena*		arena;
+	t_arena		*arena, *next;
 
 	LOCK_PRINT;
 	ft_putendl_fd("Tiny heaps:", 1);
 	arena = arena_take_tiny_read(NULL);
 	while (arena) {
 		_print_heap_address(arena);
+		next = arena->next_arena;
 		pthread_mutex_unlock(&arena->mutex);
-		arena = arena->next_arena;
-		if (arena)
+		arena = next;
+		if (arena) {
 			pthread_mutex_lock(&arena->mutex);
+		}
 	}
 	ft_putendl_fd("\nsmall heaps:", 1);
 	arena = arena_take_small_read(NULL);
 	while (arena) {
 		_print_heap_address(arena);
+		next = arena->next_arena;
 		pthread_mutex_unlock(&arena->mutex);
-		arena = arena->next_arena;
-		if (arena)
+		if (next) {
+			arena = next;
 			pthread_mutex_lock(&arena->mutex);
+		}
 	}
 	UNLOCK_PRINT;
 }
