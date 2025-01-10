@@ -41,8 +41,8 @@ typedef struct	s_chunk_hdr {
 		struct {
 			size_t				prev_size; //Size of previous chunk
 			t_chunk_size		size; //Size of current chunk (3 LSB store chunk flag)
-			struct s_chunk_hdr*	prev_free; // Next free chunk in same bin
-			struct s_chunk_hdr*	next_free; // Previous free chunk in same bin
+			struct s_chunk_hdr*	prev_free; // Previous free chunk in same bin
+			struct s_chunk_hdr*	next_free; // Next	 free chunk in same bin
 		} free;
 	} u;
 	
@@ -96,12 +96,12 @@ typedef struct s_malloc_config {
 #define CHUNK_PREV_IS_FREE(chunk_hdr)(chunk_hdr->u.free.size.flags.prev_used == 0)
 
 // Take tiny arena mutex and return the arena. If it does not exist attempt to allocate it. May return NULL !
-#define TAKE_TINY_ARENA arena_take_tiny_read()
+#define TAKE_TINY_ARENA arena_take_tiny_read(NULL)
 /*
 * Take small arena mutex and return the arena. If it does not exist attempt to allocate it.
 * May return NULL !
 */
-#define TAKE_SMALL_ARENA arena_take_small_read()
+#define TAKE_SMALL_ARENA arena_take_small_read(NULL)
 
 #define GET_FIRST_CHUNK(arena_ptr)((void*)(arena_ptr) + sizeof(t_arena))
 
@@ -109,11 +109,7 @@ typedef struct s_malloc_config {
 void			ft_free(void *ptr);
 void			*ft_malloc(size_t size);
 void			*ft_realloc(void *ptr, size_t size);
-void			show_alloc_memory();
-void			dump_heap(t_arena* arena, bool has_mutex);
-void			dump_pretty_heap(t_arena* arena, bool has_mutex);
-void			dump_n_chunk(t_chunk_hdr* chunk, size_t n, bool has_mutex);
-void			dump_n_chunk_bck(t_chunk_hdr* chunk, size_t n, bool has_mutex);
+
 t_arena_tiny*	arena_get_tiny();
 t_arena_small*	arena_get_small();
 t_arena_tiny*	arena_take_tiny_write();
@@ -122,6 +118,13 @@ t_arena_tiny*	arena_take_tiny_read(t_arena_tiny* arena);
 t_arena_small*	arena_take_small_read(t_arena_small* arena);
 
 size_t			get_heap_size(int type);
+
+void			show_alloc_memory();
+void			dump_heap(t_arena* arena, bool has_mutex);
+void			dump_pretty_heap(t_arena* arena, bool has_mutex);
+void			dump_n_chunk(t_chunk_hdr* chunk, size_t n, bool has_mutex);
+void			dump_n_chunk_bck(t_chunk_hdr* chunk, size_t n, bool has_mutex);
+void			dump_bins(t_arena* arena, bool has_mutex);
 
 #define GET_TINY_ARENA arena_get_tiny()
 #define GET_SMALL_ARENA arena_get_small()

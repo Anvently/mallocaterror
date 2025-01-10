@@ -5,6 +5,8 @@
 void*			arena_alloc_small(t_arena_small* arena, size_t size);
 t_arena_tiny*	arena_create(char type);
 void*			alloc_mmaped(size_t size);
+void			bin_insert_small(t_arena* arena, t_chunk_hdr* chunk);
+void			bin_insert_tiny(t_arena* arena, t_chunk_hdr* chunk);
 
 static t_arena_addr				g_arenas = {0};
 static pthread_mutex_t			arena_alloc_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -185,25 +187,10 @@ t_chunk_hdr*	chunk_backward(t_chunk_hdr* chunk) {
 	return ((void*)chunk - (chunk->u.free.prev_size + CHUNK_HDR_SIZE));
 }
 
-static void	_merge_free(t_arena* arena, t_chunk_hdr* chunk_hdr) {
-	(void) arena;
-	(void) chunk_hdr;
-}
-
-void	arena_free(t_chunk_hdr* chunk_hdr) {
-	t_arena*		arena = get_arena(chunk_hdr);
-	t_chunk_hdr*	next;
-
-	pthread_mutex_lock(&arena->mutex);
-	//Mark chunk as free in the next chunk
-	next = chunk_forward(arena->heap_size, chunk_hdr);
-	if (next != NULL) {
-		next->u.free.size.flags.prev_used = 0;
-		// Check if a merge is possible
-		_merge_free(arena, chunk_hdr);
-	}
-	pthread_mutex_unlock(&arena->mutex);
-}
+// static void	_merge_free(t_arena* arena, t_chunk_hdr* chunk_hdr) {
+// 	(void) arena;
+// 	(void) chunk_hdr;
+// }
 
 /// @brief Attempt to split the given chunk in 2 chunk.
 /// @param chunk 
@@ -286,3 +273,25 @@ void*	arena_alloc(t_arena* arena, size_t size) {
 	return (NULL);
 }
 
+/// @brief Mark the chunk as free and adds it to bin list
+/// @param chunk_hdr 
+void	arena_free(t_chunk_hdr* chunk_hdr) {
+	t_arena*		arena = get_arena(chunk_hdr);
+	t_chunk_hdr*	next;
+
+	pthread_mutex_lock(&arena->mutex);
+	//Mark chunk as free in the next chunk
+	next = chunk_forward(arena->heap_size, chunk_hdr);
+	if (next != NULL) {
+		next->u.free.size.flags.prev_used = 0;
+		// Adds the chunk to appropriate bin list
+		if (chunk_hdr->u.free.size.flags.type == CHUNK_TINY) {
+			bin_insert_tiny(arena, chunk_hdr);
+		} else {
+			bin_insert_small(arena, chunk_hdr);
+		}
+	} else { //If top chunk
+		arena->top_chunk = chunk_hdr;
+	}
+	pthread_mutex_unlock(&arena->mutex);
+}

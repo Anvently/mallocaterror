@@ -71,6 +71,7 @@ t_arena*	arena_create(char type) {
 	arena->top_chunk = (t_chunk_hdr*)(arena + 1);
 	arena->top_chunk->u.free.prev_size = 0;
 	arena->top_chunk->u.free.size.raw = arena->heap_size - sizeof(t_arena) - CHUNK_HDR_SIZE;
+	arena->top_chunk->u.free.size.flags.type = type;
 	arena->type.value = type;
 	return (arena);
 }

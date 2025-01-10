@@ -13,3 +13,8 @@ Malloc algorithm :
  - if top chunk was NULL or not big enough, use previous arena
  - if no previous arena, allocate new arena
  - if failed, return NULL
+
+Free algorithm :
+ - mark the chunk as free
+ - append the chunk to bins
+ 

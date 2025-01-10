@@ -4,7 +4,7 @@ INCLUDES	=	includes/
 SRCS_FOLDER	=	srcs/
 OBJS_FOLDER	=	.objs/
 
-SRCS_FILES	=	alloc.c arena.c ft_malloc.c debug.c
+SRCS_FILES	=	alloc.c arena.c ft_malloc.c debug.c bins.c
 
 OBJS		=	$(addprefix $(OBJS_FOLDER),$(SRCS_FILES:.c=.o))
 SRCS		=	$(addprefix $(SRCS_FOLDER),$(SRCS_FILES))
@@ -13,7 +13,7 @@ DEPS		=	$(addprefix $(OBJS_FOLDER), $(SRCS_FILES:.cpp=.d))
 LIBFT		=	libft/libft.a
 
 CC			=	gcc
-CFLAGS		=	-Wall -Wextra -Werror -g3 -MMD -I$(INCLUDES) -fPIC
+CFLAGS		=	-Wall -Wextra -Werror -g3 -MMD -I$(INCLUDES) -fPIC -fsanitize=address
 LDFLAGS		=	-shared
 
 .PHONY		=	all clean fclean re bonus
