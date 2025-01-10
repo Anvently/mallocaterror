@@ -6,16 +6,14 @@
 
 int	main(void) {
 	char* test;
-	for (int i = 0; i < 15; i++) {
+	for (int i = 0; i < 3; i++) {
 		test = ft_malloc(64);
 		if (test) {
-			ft_strlcpy(test, "hello world", 64);
+			ft_strlcpy(test, "hello world wefewf wefwef wuf wf uqu8 f ", 64);
 		} else {
 			ft_dprintf(2, "error at %d\n", i);
 		}
-		if (i % 2) {
-			ft_free(test);
-		}
+		ft_free(test);
 	}
 	show_alloc_memory();
 	dump_bins(GET_TINY_ARENA, false);

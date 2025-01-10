@@ -1,5 +1,8 @@
 #include <ft_malloc.h>
 
+t_chunk_hdr*	chunk_forward(size_t heap_size, t_chunk_hdr* chunk);
+
+
 static inline size_t	nearest_2_power_exp(size_t size) {
 	size_t	n = 1;
 	int		exp = 0;
@@ -67,4 +70,50 @@ void	bin_insert_small(t_arena* arena, t_chunk_hdr* chunk) {
 	prev->u.free.next_free = chunk;
 	chunk->u.free.prev_free = prev;
 	chunk->u.free.next_free = NULL;
+}
+
+static t_chunk_hdr*	_bin_get_fit_tiny(t_arena* arena, size_t size) {
+	int				bin_index = get_bin_index_tiny(size);
+	t_chunk_hdr*	chunk;
+
+	chunk = arena->bins[bin_index];
+	if (chunk) {
+		if (chunk->u.free.next_free)
+			chunk->u.free.next_free->u.free.prev_free = chunk->u.free.prev_free;
+		arena->bins[bin_index] = chunk->u.free.next_free;
+		chunk_forward(arena->heap_size, chunk)->u.used.size.flags.prev_used = true;
+	}
+	return (chunk);
+}
+
+static t_chunk_hdr*	_bin_get_fit_small(t_arena* arena, size_t size) {
+	int				bin_index = get_bin_index_tiny(size);
+	t_chunk_hdr*	chunk;
+
+	chunk = arena->bins[bin_index];
+	if (chunk) {
+		if (chunk->u.free.next_free)
+			chunk->u.free.next_free->u.free.prev_free = chunk->u.free.prev_free;
+		arena->bins[bin_index] = chunk->u.free.next_free;
+		chunk_forward(arena->heap_size, chunk)->u.used.size.flags.prev_used = true;
+	}
+	return (chunk);
+}
+
+/// @brief Find an appropriate available chunk in bins and return the padded content
+/// address or ```NULL``` if no appropriate size
+/// @param arena 
+/// @param size 
+/// @return 
+void*	bin_get_fit(t_arena* arena, size_t size) {
+	t_chunk_hdr*	chunk;
+
+	if (arena->type.value == CHUNK_TINY) {
+		chunk = _bin_get_fit_tiny(arena, size);
+	} else {
+		chunk = _bin_get_fit_small(arena, size);
+	}
+	if (chunk == NULL)
+		return (NULL);
+	return (chunk + CHUNK_HDR_SIZE);
 }

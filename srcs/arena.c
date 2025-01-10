@@ -7,6 +7,7 @@ t_arena_tiny*	arena_create(char type);
 void*			alloc_mmaped(size_t size);
 void			bin_insert_small(t_arena* arena, t_chunk_hdr* chunk);
 void			bin_insert_tiny(t_arena* arena, t_chunk_hdr* chunk);
+void*			bin_get_fit(t_arena* arena, size_t size);
 
 static t_arena_addr				g_arenas = {0};
 static pthread_mutex_t			arena_alloc_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -258,6 +259,10 @@ void*	arena_alloc(t_arena* arena, size_t size) {
 	void*	content_addr;
 
 	//Search for a free chunk in the appropriate bin
+	if ((content_addr = bin_get_fit(arena, size))) {
+		pthread_mutex_unlock(&((t_arena*)arena)->mutex);
+		return (content_addr);
+	}
 	//Coalesce chunks, starting from first free chunk, stop at first big enough
 	// If no match, split top chunk
 	if (arena->top_chunk != NULL && (content_addr = _split_top_chunk(arena, size)) != NULL) {
