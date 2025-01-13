@@ -21,6 +21,7 @@
 
 // #define AVOID_CONCURRENCY
 #define MAX_NBR_ARENAS 10
+#define COALESCE_MAX_ITERATIONS 100
 
 typedef union {
 	struct {
@@ -105,6 +106,7 @@ typedef struct s_malloc_config {
 
 #define GET_FIRST_CHUNK(arena_ptr)((void*)(arena_ptr) + sizeof(t_arena))
 
+#define GET_ALLOC_TYPE(size) (((size) <= TINY_LIMIT ? ALLOC_TYPE_TINY : ((size) <= SMALL_LIMIT ? ALLOC_TYPE_SMALL : ALLOC_TYPE_LARGE)))
 
 void			ft_free(void *ptr);
 void			*ft_malloc(size_t size);

@@ -1,7 +1,8 @@
 #include <ft_malloc.h>
 
 t_chunk_hdr*	chunk_forward(size_t heap_size, t_chunk_hdr* chunk);
-
+t_chunk_hdr*	chunk_backward(t_chunk_hdr* chunk);
+t_chunk_hdr*	merge_chunk(t_arena* arena, t_chunk_hdr* chunk);
 
 static inline size_t	nearest_2_power_exp(size_t size) {
 	size_t	n = 1;
@@ -123,4 +124,74 @@ void*	bin_get_fit(t_arena* arena, size_t size) {
 	if (chunk == NULL)
 		return (NULL);
 	return ((void*)chunk + CHUNK_HDR_SIZE);
+}
+
+t_chunk_hdr*	_get_lower_bin(t_arena* arena, size_t size) {
+	t_chunk_hdr*	lower_bin;
+	int				bin_index;
+
+	// Retrieve the smaller closest first non-empty bin
+	if (arena->type.value == CHUNK_TINY)
+		bin_index = get_bin_index_tiny(size) - (sizeof(void*) / 4);
+	else
+		bin_index = get_bin_index_small(size) - 1;
+	lower_bin = arena->bins[bin_index];
+	return (lower_bin);
+}
+
+void	bin_remove_chunk(t_arena* arena, t_chunk_hdr*	chunk) {
+	int	bin_index;
+	if (chunk->u.free.next_free)
+		chunk->u.free.next_free->u.free.prev_free = chunk->u.free.prev_free;
+	if (chunk->u.free.prev_free == NULL) {
+		if (arena->type.value == CHUNK_TINY)
+			bin_index = get_bin_index_tiny(CHUNK_SIZE(chunk->u.free.size.raw));
+		else
+			bin_index = get_bin_index_small(CHUNK_SIZE(chunk->u.free.size.raw));
+		arena->bins[bin_index] = chunk->u.free.next_free;
+	} else {
+		chunk->u.free.prev_free->u.free.next_free = chunk->u.free.next_free;
+	}
+}
+
+/// @brief Loop available chunks in bin N-1 where bin N
+/// is the appropriate bin for given size. Chunk are coalesced on the go if a merge would
+/// not exceed size limit.
+/// The operation stop as soon as a fit is found or if ```COALESCE_MAX_ITERATION```
+/// is reached.
+/// @param arena 
+/// @param size 
+/// @return Padded address or ```NULL``` (meaning no fit was found or max number
+/// of iterations reached).
+void*	bin_coalesce_chunks(t_arena* arena, size_t size) {
+	t_chunk_hdr*	bin;
+	t_chunk_hdr		*new_chunk;
+	int				iterations = 0;
+
+	// Retrieve the inferior bin
+	bin = _get_lower_bin(arena, size);
+	if (bin == NULL)
+		return (NULL);
+	while (bin && iterations < COALESCE_MAX_ITERATIONS) {
+		// if a merge is possible
+		if (bin->u.free.size.flags.prev_used == false && 
+			(CHUNK_SIZE(bin->u.free.size.raw) + CHUNK_SIZE(bin->u.free.size.raw) + CHUNK_HDR_SIZE
+				<= (arena->type.value == CHUNK_TINY ? TINY_LIMIT : SMALL_LIMIT))) {
+			_bin_remove_chunk(arena, bin);
+			_bin_remove_chunk(arena, chunk_backward(bin));
+			new_chunk = merge_chunk(arena, bin);
+			// If its a fit
+			if (CHUNK_SIZE(new_chunk->u.free.size.raw) >= size) {
+				chunk_forward(arena->heap_size, new_chunk)->u.used.size.flags.prev_used = true;
+				return ((void*)new_chunk + CHUNK_HDR_SIZE);
+			} else if (arena->type.value == CHUNK_TINY) {
+				bin_insert_tiny(arena, new_chunk);
+			} else {
+				bin_insert_small(arena, new_chunk);
+			}
+		}
+		iterations++;
+		bin = bin->u.free.next_free;
+	}
+	return (NULL);
 }

@@ -1,4 +1,5 @@
 #include <ft_malloc.h>
+#define __USE_GNU
 #include <sys/mman.h>
 #include <stdint.h>
 
@@ -72,6 +73,7 @@ t_arena*	arena_create(char type) {
 	arena->top_chunk->u.free.prev_size = 0;
 	arena->top_chunk->u.free.size.raw = arena->heap_size - sizeof(t_arena) - CHUNK_HDR_SIZE;
 	arena->top_chunk->u.free.size.flags.type = type;
+	arena->top_chunk->u.free.size.flags.prev_used = true;
 	arena->type.value = type;
 	return (arena);
 }
@@ -85,4 +87,16 @@ void*	alloc_mmaped(size_t size) {
 	chunk->u.used.size.raw = size;
 	chunk->u.used.size.flags.mmaped = 1;
 	return (&chunk->u.used.payload);
+}
+
+void*	realloc_mmaped(t_chunk_hdr* hdr, size_t size) {
+	size_t	old_size = CHUNK_SIZE(hdr->u.used.size.raw);
+	void*	ret;
+
+	ret = mremap(hdr, old_size, size, MAP_ANONYMOUS | MAP_PRIVATE | MREMAP_MAYMOVE);
+	if (ret == MAP_FAILED)
+		return (NULL);
+	hdr = (t_chunk_hdr*)ret;
+	hdr->u.used.size.raw = size | (hdr->u.used.size.raw & 0b111);
+	return ((void*)hdr + CHUNK_HDR_SIZE);
 }

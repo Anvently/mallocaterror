@@ -5,7 +5,7 @@
 void			arena_free(t_chunk_hdr* chunk_hdr);
 void*			arena_alloc(t_arena* arena, size_t size);
 void*			alloc_mmaped(size_t size);
-
+void*			realloc_mmaped(t_chunk_hdr* hdr, size_t size);
 /*
 size = 10
 x64
@@ -56,3 +56,31 @@ void	ft_free(void* ptr) {
 	arena_free(hdr);
 }
 
+void*	ft_realloc(void* ptr, size_t size) {
+	t_chunk_hdr*	hdr;
+	size_t			old_size;
+	void*			ret;
+
+	if (ptr == NULL)
+		return (ft_malloc(size));
+	if (size == 0) {
+		ft_free(ptr);
+		return (NULL);
+	}
+	if (size % ADDR_ALIGNMENT) //alignment: 16 bytes on x64 or 8 bytes on x86 
+		size = size - (size % (ADDR_ALIGNMENT)) + ADDR_ALIGNMENT;
+	hdr = (t_chunk_hdr*)(ptr - CHUNK_HDR_SIZE);
+	old_size =  CHUNK_SIZE(hdr->u.used.size.raw);
+	if (hdr->u.used.size.flags.mmaped == true) {
+		ret = realloc_mmaped(hdr, size);
+		return (ret);
+	}
+	if (GET_ALLOC_TYPE(old_size) == GET_ALLOC_TYPE(size) && (ret = arena_realloc(hdr, size)))
+		return (ret);
+	ret = ft_malloc(size);
+	if (ret == NULL)
+		return (NULL);
+	ft_memcpy(ret, ptr, (size >= old_size ? old_size : size));
+	ft_free(ptr);
+	return (ret);
+}

@@ -8,7 +8,9 @@ Small : (64K * 100 = 6.4M)
 
 Malloc algorithm :
  - find a free chunk in appropriate bin
- - coalesce chunks, starting from first free chunk, stop when a chunk is big enough
+ - coalesce chunks, starting from first free chunk in lower bin,
+ 	stop when a chunk is big enough or when iteration number reach a limit
+ - split a chunk in the next bin ?
  - split top chunk
  - if top chunk was NULL or not big enough, use previous arena
  - if no previous arena, allocate new arena
@@ -18,3 +20,9 @@ Free algorithm :
  - mark the chunk as free
  - append the chunk to bins
  
+
+Realloc algorithm :
+ - Check if the chunk is big enough
+ - Check for available following chunks
+ - Call free
+ - Call malloc
