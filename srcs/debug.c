@@ -234,6 +234,7 @@ static void	_dump_tiny_bins(t_arena* arena) {
 				ft_printf(" -> %p (%lu)", bins, CHUNK_SIZE(bins->u.free.size.raw));
 				bins = bins->u.free.next_free;
 			}
+			write(1, "\n", 1);
 		}
 	}
 }
@@ -248,6 +249,7 @@ static void	_dump_small_bins(t_arena* arena) {
 				ft_printf(" -> %p (%lu)", bins, CHUNK_SIZE(bins->u.free.size.raw));
 				bins = bins->u.free.next_free;
 			}
+			write(1, "\n", 1);
 		}
 	}
 }

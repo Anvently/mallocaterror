@@ -85,8 +85,8 @@ typedef struct s_malloc_config {
 	size_t	small_heap_size;
 }	t_malloc_config;
 
-#define TINY_ZONE_MIN_SIZE ((TINY_LIMIT * 100) + (100 * sizeof(t_chunk_hdr)))  
-#define SMALL_ZONE_MIN_SIZE ((SMALL_LIMIT * 100) + (100 * sizeof(t_chunk_hdr)))  
+#define TINY_ZONE_MIN_SIZE ((TINY_LIMIT * 100) + (100 * CHUNK_HDR_SIZE))  
+#define SMALL_ZONE_MIN_SIZE ((SMALL_LIMIT * 100) + (100 * CHUNK_HDR_SIZE))  
 
 #define VALUE_ALIGNED(value, alignment) ((((value) + (alignment) - 1) / (alignment)) * (alignment))
 #define TINY_HEAP_SIZE(page_size) (VALUE_ALIGNED(TINY_ZONE_MIN_SIZE + sizeof(t_arena), page_size))

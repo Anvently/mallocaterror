@@ -4,6 +4,12 @@
 #include <sys/mman.h>
 #include <errno.h>
 
+/* Idea is to alloc 30 ascending small chunks and free them immediately. 
+	This create 30 available chunks in 3 differents bins. Then we reallocate 
+	the same size. No new chunk should be created and bin list should be empty at
+	the end.
+ */
+
 int	main(void) {
 	char* test;
 	for (int i = 0; i < 30; i++) {

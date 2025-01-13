@@ -87,15 +87,22 @@ static t_chunk_hdr*	_bin_get_fit_tiny(t_arena* arena, size_t size) {
 }
 
 static t_chunk_hdr*	_bin_get_fit_small(t_arena* arena, size_t size) {
-	int				bin_index = get_bin_index_tiny(size);
+	int				bin_index = get_bin_index_small(size);
 	t_chunk_hdr*	chunk;
 
 	chunk = arena->bins[bin_index];
-	if (chunk) {
-		if (chunk->u.free.next_free)
-			chunk->u.free.next_free->u.free.prev_free = chunk->u.free.prev_free;
-		arena->bins[bin_index] = chunk->u.free.next_free;
-		chunk_forward(arena->heap_size, chunk)->u.used.size.flags.prev_used = true;
+	while (chunk) {
+		if (CHUNK_SIZE(chunk->u.free.size.raw) >= size) {
+			if (chunk->u.free.next_free)
+				chunk->u.free.next_free->u.free.prev_free = chunk->u.free.prev_free;
+			if (chunk->u.free.prev_free)
+				chunk->u.free.prev_free->u.free.next_free = chunk->u.free.next_free;
+			else
+				arena->bins[bin_index] = chunk->u.free.next_free;
+			chunk_forward(arena->heap_size, chunk)->u.used.size.flags.prev_used = true;
+			return (chunk);
+		}
+		chunk = chunk->u.free.next_free;
 	}
 	return (chunk);
 }
@@ -115,5 +122,5 @@ void*	bin_get_fit(t_arena* arena, size_t size) {
 	}
 	if (chunk == NULL)
 		return (NULL);
-	return (chunk + CHUNK_HDR_SIZE);
+	return ((void*)chunk + CHUNK_HDR_SIZE);
 }

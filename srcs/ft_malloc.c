@@ -21,8 +21,8 @@ size = 24 (chunk = 8 + 24 = 32)
 
 */
 void*	ft_malloc(size_t size) {
-	void*	arena_addr;
-	void*	ret = NULL;
+	t_arena*	arena_addr;
+	void*		ret = NULL;
 
 	if (size % ADDR_ALIGNMENT) //alignment: 16 bytes on x64 or 8 bytes on x86 
 		size = size - (size % (ADDR_ALIGNMENT)) + ADDR_ALIGNMENT;
@@ -30,15 +30,13 @@ void*	ft_malloc(size_t size) {
 		ret = alloc_mmaped(size);
 	else if (size > TINY_LIMIT) {
 		arena_addr = arena_take_small_write();
-		if (arena_addr)
-			ret = arena_alloc((t_arena_small*)arena_addr, size);
 	} else {
 		if (size < TINY_MIN)
 			size = TINY_MIN;
 		arena_addr = arena_take_tiny_write();
-		if (arena_addr)
-			ret = arena_alloc((t_arena_tiny*)arena_addr, size);
 	}
+	if (arena_addr)
+		ret = arena_alloc(arena_addr, size);
 	if (ret == NULL)
 		errno = ENOMEM;
 	return (ret);
