@@ -246,13 +246,17 @@ static void	_dump_tiny_bins(t_arena* arena) {
 
 static void	_dump_small_bins(t_arena* arena) {
 	t_chunk_hdr*	bins;
+	t_chunk_hdr*	prev;
 	for (int i = 8; i < 17; i++) {
 		bins = arena->bins[i];
 		if (bins) {
 			ft_printf("%uB-%uB: ", power_2(i - 1), power_2(i));
 			while (bins) {
 				ft_printf(" -> %p (%lu)", bins, CHUNK_SIZE(bins->u.free.size.raw));
+				prev = bins;
 				bins = bins->u.free.next_free;
+				if (bins && bins->u.free.prev_free != prev)
+					ft_dprintf(2, "FATAL : Bin corruption\n");
 			}
 			write(1, "\n", 1);
 		}

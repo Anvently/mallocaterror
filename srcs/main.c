@@ -3,245 +3,56 @@
 #include <ft_malloc.h>
 #include <sys/mman.h>
 #include <errno.h>
+#include <string.h>
+#include <time.h>
 
-void	expand_no_merge() {
-	char* test;
-	ft_printf("allocating 129 bytes + free\n");
-	test = ft_malloc(129);
-	ft_free(test);
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	ft_printf("allocating 180 bytes + free\n");
-	test = ft_malloc(180);
-	ft_free(test);
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	ft_printf("allocating 256 bytes\n");
-	test = ft_malloc(256); //352B coalesced chunk
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	ft_printf("realloc to 352\n");
-	char* realloc_test = ft_realloc(test, 256);
-	ft_printf("ptr=%p,realloc_ptr=%p\n", test, realloc_test);
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-}
+#define NBR_CHUNKS 1000
+#define MIN_BLOCK_SIZE SMALL_MIN
+#define MAX_BLOCK_SIZE SMALL_LIMIT
+#define ARENA_TYPE CHUNK_SMALL
 
-void	shrink_new_chunk() {
-	char* test;
-	ft_printf("allocating 129 bytes + free\n");
-	test = ft_malloc(129);
-	ft_free(test);
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	ft_printf("allocating 180 bytes + free\n");
-	test = ft_malloc(180);
-	ft_free(test);
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	ft_printf("allocating 256 bytes\n");
-	test = ft_malloc(256); //352B coalesced chunk
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	ft_printf("realloc to 208\n");
-	char* realloc_test = ft_realloc(test, 208);
-	ft_printf("ptr=%p,realloc_ptr=%p\n", test, realloc_test);
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	dump_bins(GET_SMALL_ARENA, false);
-}
+t_chunk_hdr	chunks[NBR_CHUNKS] = {0};
+t_arena		arena = {0};
 
-void	shrink_no_change() {
-	char* test;
-	ft_printf("allocating 129 bytes + free\n");
-	test = ft_malloc(129);
-	ft_free(test);
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	ft_printf("allocating 180 bytes + free\n");
-	test = ft_malloc(180);
-	ft_free(test);
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	ft_printf("allocating 256 bytes\n");
-	test = ft_malloc(256); //352B coalesced chunk
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	ft_printf("realloc to 224\n");
-	char* realloc_test = ft_realloc(test, 224);
-	ft_printf("ptr=%p,realloc_ptr=%p\n", test, realloc_test);
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	dump_bins(GET_SMALL_ARENA, false);
-}
 
-void	expand_using_top_chunk() {
-	printf("EXPAND USING TOP CHUNK\n");
-	char* test;
-	ft_printf("allocating 129 bytes + free\n");
-	test = ft_malloc(129);
-	ft_free(test);
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	ft_printf("allocating 180 bytes + free\n");
-	test = ft_malloc(180);
-	ft_free(test);
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	ft_printf("allocating 256 bytes\n");
-	test = ft_malloc(256); //352B coalesced chunk
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	ft_printf("realloc to 353\n");
-	char* realloc_test = ft_realloc(test, 353);
-	ft_printf("ptr=%p,realloc_ptr=%p\n", test, realloc_test);
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	dump_bins(GET_SMALL_ARENA, false);
-}
+void	bin_insert_tiny(t_arena* arena, t_chunk_hdr* chunk);
+void	bin_insert_small(t_arena* arena, t_chunk_hdr* chunk);
+void	bin_remove_chunk(t_arena* arena, t_chunk_hdr*	chunk);
 
-void	shrink_with_trailing_free() {
-	char* test;
-	test = ft_malloc(196);
-	ft_free(test);
-	test = ft_malloc(212);
-	ft_free(test);
-	test = ft_malloc(256); //352B coalesced chunk
-	char* free_chunk = ft_malloc(256);
-	ft_free(free_chunk);
-	// ft_printf("allocating 129 bytes + free\n");
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	ft_printf("realloc to 128\n");
-	char* realloc_test = ft_realloc(test, 128);
-	ft_printf("ptr=%p,realloc_ptr=%p\n", test, realloc_test);
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	dump_bins(GET_SMALL_ARENA, false);
-}
+#define SET_SIZE(chunk, size)((chunk).u.free.size.raw = size | ((chunk).u.free.size.raw & 0b111))
 
-void	expand_using_free() {
-	printf("EXPAND USING SINGLE FREE CHUNK\n");
-	char* test;
-	test = ft_malloc(196);
-	ft_free(test);
-	test = ft_malloc(212);
-	ft_free(test);
-	test = ft_malloc(256); //352B coalesced chunk
-	char* free_chunk = ft_malloc(256);
-	ft_free(free_chunk);
-	ft_printf("Before realloc\n");
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	dump_bins(GET_SMALL_ARENA, false);
-	ft_printf("realloc to 449\n");
-	char* realloc_test = ft_realloc(test, 449);
-	ft_printf("ptr=%p,realloc_ptr=%p\n", test, realloc_test);
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	dump_bins(GET_SMALL_ARENA, false);
-}
-
-void	expand_using_free_and_top() {
-	printf("EXPAND USING SINGLE FREE CHUNK + TOP\n");
-	char* test;
-	test = ft_malloc(196);
-	ft_free(test);
-	test = ft_malloc(212);
-	ft_free(test);
-	test = ft_malloc(256); //352B coalesced chunk
-	char* free_chunk = ft_malloc(256);
-	ft_free(free_chunk);
-	ft_printf("Before realloc\n");
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	dump_bins(GET_SMALL_ARENA, false);
-	ft_printf("realloc to 721\n");
-	char* realloc_test = ft_realloc(test, 721);
-	ft_printf("ptr=%p,realloc_ptr=%p\n", test, realloc_test);
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	dump_bins(GET_SMALL_ARENA, false);
-}
-
-void	expand_using_free_multiple_and_top() {
-	printf("EXPAND USING MULTIPLE FREE CHUNK + TOP\n");
-	char* test;
-	test = ft_malloc(196);
-	ft_free(test);
-	test = ft_malloc(212);
-	ft_free(test);
-	test = ft_malloc(256); //352B coalesced chunk
-	char* free_chunk = ft_malloc(256);
-	ft_free(free_chunk);
-	free_chunk = ft_malloc(272);
-	ft_free(free_chunk);
-	ft_printf("Before realloc\n");
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	dump_bins(GET_SMALL_ARENA, false);
-	ft_printf("realloc to 2040\n");
-	char* realloc_test = ft_realloc(test, 2040);
-	ft_printf("ptr=%p,realloc_ptr=%p\n", test, realloc_test);
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	dump_bins(GET_SMALL_ARENA, false);
-}
-
-void	expand_using_free_multiple() {
-	printf("EXPAND USING MULTIPLE FREE CHUNK\n");
-	char* test;
-	test = ft_malloc(196);
-	ft_free(test);
-	test = ft_malloc(212);
-	ft_free(test);
-	test = ft_malloc(256); //352B coalesced chunk
-	char* free_chunk = ft_malloc(256);
-	ft_free(free_chunk);
-	free_chunk = ft_malloc(272);
-	ft_free(free_chunk);
-	ft_printf("Before realloc\n");
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	dump_bins(GET_SMALL_ARENA, false);
-	ft_printf("realloc to 1008\n");
-	char* realloc_test = ft_realloc(test, 1008);
-	ft_printf("ptr=%p,realloc_ptr=%p\n", test, realloc_test);
-	dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 4, false);
-	dump_bins(GET_SMALL_ARENA, false);
-}
-
-void	expand_using_top_chunk_full() {
-	printf("EXPAND USING THE FULL TOP CHUNK\n");
-	char* test[10000];
-	for (int i = 0; i < 201; i++) {
-		test[i] = ft_malloc(64);
-		(void)test;
+void	set_random_size(t_chunk_hdr chunks[]) {
+	(void)chunks;
+	for (int i = 0; i < NBR_CHUNKS; i++) {
+		size_t size = MIN_BLOCK_SIZE + (rand() % (MAX_BLOCK_SIZE - MIN_BLOCK_SIZE)) + 1;
+		size -= size % 16;	
+		SET_SIZE(chunks[i], size);
 	}
-	test[201] = ft_malloc(32);
-	// ft_free(test[201]);
-	dump_short_n_chunk((t_chunk_hdr*)(GET_TINY_ARENA + 1), 300, false);
-	dump_bins(GET_TINY_ARENA, false);
-	ft_printf("Expanding chunk %p to %lu bytes\n", test[201], 80);
-	char* realloc_test = ft_realloc(test[201], 80);
-	ft_printf("ptr=%p,realloc_ptr=%p\n", test[201], realloc_test);
-	dump_short_n_chunk((t_chunk_hdr*)(GET_TINY_ARENA + 1), 300, false);
-	dump_bins(GET_TINY_ARENA, false);
 }
 
-void	expand_using_multiple_free_without_top() {
-	char*	test[4];
-
-	printf("EXPAND BY MOVING\n");
-	test[0] = ft_malloc(128);
-	test[1] = ft_malloc(144);
-	test[2] = ft_malloc(180);
-	test[3] = ft_malloc(196);
-	ft_free(test[1]);
-	ft_free(test[2]);
-	ft_strlcpy(test[0], "pouet pouet camember", 128);
-	dump_short_n_chunk((t_chunk_hdr*)(GET_SMALL_ARENA + 1), 300, false);
-	dump_bins(GET_SMALL_ARENA, false);
-	ft_printf("Expanding chunk %p to %lu bytes\n", test[0], 496);
-	char* realloc_test = ft_realloc(test[0], 496);
-	ft_printf("ptr=%p,realloc_ptr=%p\n", test[0], realloc_test);
-	dump_short_n_chunk((t_chunk_hdr*)(GET_SMALL_ARENA + 1), 300, false);
-	dump_bins(GET_SMALL_ARENA, false);
+void	add_to_bins() {
+	for (int i = 0; i < NBR_CHUNKS; i++) {
+		bin_insert_small(&arena, &chunks[i]);
+	}
 }
 
-void	expand_by_moving() {
-	printf("EXPAND BY MOVING\n");
-	char* test = ft_malloc(64);
-	ft_malloc(80);
-	ft_strlcpy(test, "pouet pouet camember", 64);
-	dump_short_n_chunk((t_chunk_hdr*)(GET_TINY_ARENA + 1), 300, false);
-	dump_bins(GET_TINY_ARENA, false);
-	char* realloc_test = ft_realloc(test, 80);
-	ft_printf("ptr=%p,realloc_ptr=%p\n", test, realloc_test);
-	dump_short_n_chunk((t_chunk_hdr*)(GET_TINY_ARENA + 1), 300, false);
-	dump_bins(GET_TINY_ARENA, false);
-	dump_n_chunk_bck(GET_TINY_ARENA->top_chunk, 300, false);
+void	config_arena() {
+	arena.type.value = ARENA_TYPE;
+}
+
+void	remove_random_bin() {
+	for (int i = 0; i < NBR_CHUNKS; i++) {
+		int index = rand() % NBR_CHUNKS;
+		bin_remove_chunk(&arena, &chunks[index]);
+	}
 }
 
 int	main(void) {
-	// expand_using_free();
-	// expand_using_free_and_top();
-	// expand_using_free_multiple();
-	expand_using_multiple_free_without_top();
+	srand((unsigned int)time(NULL));
+	set_random_size(&chunks[0]);
+	add_to_bins();
+	dump_bins(&arena, true);
+	remove_random_bin();
+	dump_bins(&arena, true);
 	return (0);
 }

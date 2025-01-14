@@ -63,6 +63,8 @@ void	bin_insert_small(t_arena* arena, t_chunk_hdr* chunk) {
 			bin->u.free.prev_free = chunk;
 			if (bin == arena->bins[bin_index])
 				arena->bins[bin_index] = chunk;
+			else
+				prev->u.free.next_free = chunk;
 			return;
 		}
 		prev = bin;
