@@ -275,4 +275,91 @@ void	dump_bins(t_arena* arena, bool has_mutex) {
 	UNLOCK_PRINT;
 }
 
+void	dump_short_n_chunk(t_chunk_hdr* chunk, size_t n, bool has_mutex) {
+	size_t			i = 0;
+	t_chunk_hdr*	next;
+	t_arena*		arena;
+	unsigned int	type;
+	const char*		colors[3] = {TERM_CL_MAGENTA, TERM_CL_GREEN, TERM_CL_BLUE};
+
+	LOCK_PRINT;
+	if (chunk == NULL) {
+		ft_putendl_fd("\nError: cannot dump null chunk", 2);
+		UNLOCK_PRINT;
+		return;
+	}
+	arena = get_arena(chunk);
+	if (has_mutex == false)
+		pthread_mutex_lock(&arena->mutex);
+	while (i < n && chunk) {
+		next = chunk_forward(arena->heap_size, chunk);
+		if ((next && next->u.used.size.flags.prev_used == true)) //used
+			type = 0;
+		else if (next) //free
+			type = 1;
+		else if (next == NULL && arena->top_chunk == chunk) //top chunk
+			type = 2;
+		else
+			type = 0; //used top chunk
+		ft_printf("%s%s%p(%luB)%s%s", (i != 0 ? "->" : (chunk == (t_chunk_hdr*)(arena + 1) ? "" : "...")),
+										colors[type],
+										chunk,
+										CHUNK_SIZE(chunk->u.used.size.raw),
+										TERM_CL_RESET,
+										(i + 1 < n || next == NULL ? "" : "..."));
+		chunk = next;
+		i++;
+	}
+	write(1, "\n", 1);
+	if (has_mutex == false)
+		pthread_mutex_unlock(&arena->mutex);
+	UNLOCK_PRINT;
+}
+
+void	dump_short_n_chunk_bck(t_chunk_hdr* chunk, size_t n, bool has_mutex) {
+	size_t			i = 0, j;
+	t_chunk_hdr*	next, *prev;
+	t_arena*		arena;
+	unsigned int	type;
+	const char*		colors[3] = {TERM_CL_MAGENTA, TERM_CL_GREEN, TERM_CL_BLUE};
+
+	LOCK_PRINT;
+	if (chunk == NULL) {
+		ft_putendl_fd("\nError: cannot dump null chunk", 2);
+		UNLOCK_PRINT;
+		return;
+	}
+	arena = get_arena(chunk);
+	if (has_mutex == false)
+		pthread_mutex_lock(&arena->mutex);
+	for (j = 1; j < n + 1; j++) {
+		prev = chunk_backward(chunk);
+		if (prev == NULL)
+			break;
+		chunk = prev;
+	}
+	while (i < j && chunk) {
+		next = chunk_forward(arena->heap_size, chunk);
+		if ((next && next->u.used.size.flags.prev_used == true)) //used
+			type = 0;
+		else if (next) //free
+			type = 1;
+		else if (next == NULL && arena->top_chunk == chunk) //top chunk
+			type = 2;
+		else
+			type = 0; //used top chunk
+		ft_printf("%s%s%p(%luB)%s%s", (i != 0 ? "->" : (chunk == (t_chunk_hdr*)(arena + 1) ? "" : "...")),
+										colors[type],
+										chunk,
+										CHUNK_SIZE(chunk->u.used.size.raw),
+										TERM_CL_RESET,
+										(i + 1 < j || next == NULL ? "" : "..."));
+		chunk = next;
+		i++;
+	}
+	write(1, "\n", 1);
+	if (has_mutex == false)
+		pthread_mutex_unlock(&arena->mutex);
+	UNLOCK_PRINT;
+}
 

@@ -8,7 +8,7 @@ static inline size_t	nearest_2_power_exp(size_t size) {
 	size_t	n = 1;
 	int		exp = 0;
 
-	while (n < size) {
+	while (n <= size) {
 		n <<= 1;
 		exp++;
 	}
@@ -141,6 +141,9 @@ t_chunk_hdr*	_get_lower_bin(t_arena* arena, size_t size) {
 
 void	bin_remove_chunk(t_arena* arena, t_chunk_hdr*	chunk) {
 	int	bin_index;
+
+	if (chunk == NULL)
+		return;
 	if (chunk->u.free.next_free)
 		chunk->u.free.next_free->u.free.prev_free = chunk->u.free.prev_free;
 	if (chunk->u.free.prev_free == NULL) {
@@ -177,8 +180,8 @@ void*	bin_coalesce_chunks(t_arena* arena, size_t size) {
 		if (bin->u.free.size.flags.prev_used == false && 
 			(CHUNK_SIZE(bin->u.free.size.raw) + CHUNK_SIZE(bin->u.free.size.raw) + CHUNK_HDR_SIZE
 				<= (arena->type.value == CHUNK_TINY ? TINY_LIMIT : SMALL_LIMIT))) {
-			_bin_remove_chunk(arena, bin);
-			_bin_remove_chunk(arena, chunk_backward(bin));
+			bin_remove_chunk(arena, bin);
+			bin_remove_chunk(arena, chunk_backward(bin));
 			new_chunk = merge_chunk(arena, bin);
 			// If its a fit
 			if (CHUNK_SIZE(new_chunk->u.free.size.raw) >= size) {

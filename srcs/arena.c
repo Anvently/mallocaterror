@@ -223,9 +223,9 @@ t_chunk_hdr*	merge_chunk(t_arena* arena, t_chunk_hdr* chunk) {
 /// @return ```NULL``` if the chunk to be splitted is not big enough.
 /// If the trailing new chunk is not considered big enough, the split is not performed
 /// and the chunk is returned as such.
-/// If success return the 2nd chunk, the new created one.
+/// If success return the trailing chunk, the new created one.
 void*	_split_chunk(t_chunk_hdr* chunk, size_t target_size) {
-	t_chunk_hdr*	next;
+	t_chunk_hdr*	trailing_chunk, *next;
 	size_t			available_size = CHUNK_SIZE(chunk->u.free.size.raw);
 	size_t			min_size = CHUNK_HDR_SIZE + (chunk->u.free.size.flags.type == CHUNK_TINY ? TINY_MIN : SMALL_MIN);
 
@@ -234,10 +234,13 @@ void*	_split_chunk(t_chunk_hdr* chunk, size_t target_size) {
 	if (available_size - target_size < min_size)
 		return (chunk);
 	chunk->u.free.size.raw = target_size | (chunk->u.free.size.raw & (0b111));
-	next = (void*)chunk + target_size + CHUNK_HDR_SIZE;
-	next->u.free.prev_size = target_size;
-	next->u.free.size.raw = ((available_size - target_size) | (chunk->u.free.size.raw & (0b110))) - CHUNK_HDR_SIZE;
-	return (next);
+	trailing_chunk = (void*)chunk + target_size + CHUNK_HDR_SIZE;
+	trailing_chunk->u.free.prev_size = target_size;
+	trailing_chunk->u.free.size.raw = ((available_size - target_size) | (chunk->u.free.size.raw & (0b110))) - CHUNK_HDR_SIZE;
+	next = chunk_forward(get_arena(chunk)->heap_size, trailing_chunk);
+	if (next)
+		next->u.used.prev_size = (available_size - target_size) - CHUNK_HDR_SIZE;
+	return (trailing_chunk);
 }
 
 /// @brief Attempt to split top chunk using ```size```
@@ -250,7 +253,6 @@ static	void*	_split_top_chunk(t_arena* arena, size_t size) {
 	chunk = _split_chunk(arena->top_chunk, size);
 	if (chunk == NULL)
 		return (NULL);
-	chunk->u.used.size.flags.type = (size <= TINY_LIMIT ? CHUNK_TINY : CHUNK_SMALL);
 	if (chunk != arena->top_chunk) {
 		chunk->u.used.size.flags.prev_used = 1;
 		arena->top_chunk = chunk;
@@ -273,10 +275,17 @@ static t_arena*	_alloc_new_arena(t_arena* arena) {
 	return (arena);
 }
 
-static t_chunk_hdr*	_arena_expand_chunk(t_arena* arena, t_chunk_hdr* chunk, size_t old_size, size_t new_size) {
+/// @brief Expand a chunk to ```new_size``` if the operation is legal. That means if the actual chunk is
+/// already big enough or can be merged with any subsequent free chunks. If the new chunk resulting
+/// from the merge is bigger than the heap limit, the operation fails and no merge is done.
+/// @param arena 
+/// @param chunk 
+/// @param old_size 
+/// @param new_size 
+/// @return ```chunk``` if the operation succeed or ```NULL``` if it could not be performed
+static t_chunk_hdr*	_arena_expand_chunk(t_arena* arena, t_chunk_hdr* chunk, size_t new_size) {
 	t_chunk_hdr	*current = chunk, *next = chunk_forward(arena->heap_size, chunk);
 	size_t		free_size = CHUNK_SIZE(current->u.free.size.raw);
-	size_t		remaining_top_chunk_space;
 	size_t		top_chunk_contribution = 0;
 	size_t		extra_size = 0;
 
@@ -301,22 +310,49 @@ static t_chunk_hdr*	_arena_expand_chunk(t_arena* arena, t_chunk_hdr* chunk, size
 		return (NULL);
 	// If the top chunk need to be split
 	if (top_chunk_contribution) {
-		current = _split_top_chunk(arena, top_chunk_contribution);
-		if (current = NULL) {
-			ft_dprintf(2, "Warning : UNDEFINED BEHAVIOUR ?\n");
-			return (NULL);
+		current = _split_chunk(arena->top_chunk, top_chunk_contribution - CHUNK_HDR_SIZE);
+		if (current != arena->top_chunk) {
+			current->u.free.size.flags.prev_used = true;
+			next = current;
+			current = arena->top_chunk;
+			arena->top_chunk = next;
 		}
-		if (current)
-		current = merge_chunk(arena, current);
 	}
 	while (current != chunk) {
-		bin_remove_chunk(arena, current)
+		if ((next != NULL && next->u.free.size.flags.prev_used == false))
+			bin_remove_chunk(arena, current);
+		next = current;
+		current = merge_chunk(arena, current);
 	}
-	return (NULL);
+	return (chunk);
 }
 
-static t_chunk_hdr*	_arena_shrink_chunk(t_arena* arena, t_chunk_hdr* chunk, size_t old_size, size_t new_size) {
-	
+
+/// @brief Shrink ```chunk``` to ```new_size```, possibly creating a new free chunk
+/// if the freed space is large enough. This operation cannot fail, if a new chunk can not
+/// be created or if the remaining chunk is too small, the chunk will keep its original size.
+/// @param arena 
+/// @param chunk 
+/// @param old_size 
+/// @param new_size 
+static void	_arena_shrink_chunk(t_arena* arena, t_chunk_hdr* chunk, size_t new_size) {
+	t_chunk_hdr	*trailing_chunk, *next;
+
+	trailing_chunk = _split_chunk(chunk, new_size);
+	if (trailing_chunk == chunk)
+		return;
+	next = chunk_forward(arena->heap_size, trailing_chunk);
+	if (next != NULL) {
+		next->u.free.size.flags.prev_used = 0;
+		// Adds the chunk to appropriate bin list
+		if (trailing_chunk->u.free.size.flags.type == CHUNK_TINY) {
+			bin_insert_tiny(arena, trailing_chunk);
+		} else {
+			bin_insert_small(arena, trailing_chunk);
+		}
+	} else { //If top chunk
+		arena->top_chunk = trailing_chunk;
+	}
 }
 
 void*	arena_alloc(t_arena* arena, size_t size) {
@@ -375,9 +411,9 @@ void*	arena_realloc(t_chunk_hdr* chunk_hdr, size_t size) {
 
 	pthread_mutex_lock(&arena->mutex);
 	if (size > old_size) {
-		chunk_hdr = _arena_expand_chunk(arena, chunk_hdr, old_size, size);
+		chunk_hdr = _arena_expand_chunk(arena, chunk_hdr, size);
 	} else if (size < old_size)
-		chunk_hdr = _arena_shrink_chunk(arena, chunk_hdr, old_size, size);
+		_arena_shrink_chunk(arena, chunk_hdr, size);
 	pthread_mutex_unlock(&arena->mutex);
 	if (chunk_hdr)
 		return ((void*)chunk_hdr + CHUNK_HDR_SIZE);

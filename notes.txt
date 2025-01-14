@@ -22,7 +22,10 @@ Free algorithm :
  
 
 Realloc algorithm :
+ - if size==0, call free
+ - if ptr==NULL, call malloc 
  - Check if the chunk is big enough
  - Check for available following chunks
- - Call free
  - Call malloc
+ - memcpy to new zone
+ - Call free

@@ -6,6 +6,8 @@ void			arena_free(t_chunk_hdr* chunk_hdr);
 void*			arena_alloc(t_arena* arena, size_t size);
 void*			alloc_mmaped(size_t size);
 void*			realloc_mmaped(t_chunk_hdr* hdr, size_t size);
+void*			arena_realloc(t_chunk_hdr* chunk_hdr, size_t size);
+
 /*
 size = 10
 x64
