@@ -310,20 +310,25 @@ static t_chunk_hdr*	_arena_expand_chunk(t_arena* arena, t_chunk_hdr* chunk, size
 		return (NULL);
 	// If the top chunk need to be split
 	if (top_chunk_contribution) {
-		current = _split_chunk(arena->top_chunk, top_chunk_contribution - CHUNK_HDR_SIZE);
-		if (current != arena->top_chunk) {
-			current->u.free.size.flags.prev_used = true;
-			next = current;
+		next = _split_chunk(arena->top_chunk, top_chunk_contribution - CHUNK_HDR_SIZE);
+		if (next != arena->top_chunk) {
+			next->u.free.size.flags.prev_used = true;
 			current = arena->top_chunk;
 			arena->top_chunk = next;
 		}
-	}
+	} else if (current != chunk)
+		bin_remove_chunk(arena, current);
 	while (current != chunk) {
-		if ((next != NULL && next->u.free.size.flags.prev_used == false))
-			bin_remove_chunk(arena, current);
+		//If previous chunk is a free chunk, free it
+		if (current->u.free.size.flags.prev_used == false) {
+			bin_remove_chunk(arena, chunk_backward(current));
+		}
 		next = current;
 		current = merge_chunk(arena, current);
 	}
+	next = chunk_forward(arena->heap_size, current);
+	if (next)
+		next->u.free.size.flags.prev_used = true;
 	return (chunk);
 }
 

@@ -85,8 +85,13 @@ static void	_hexdump_color_heap(void* start_addr, size_t n_chunk) {
 					}
 					current_chunk = (t_chunk_hdr*)(data + i);
 					next = (void*)current_chunk + CHUNK_SIZE(current_chunk->u.free.size.raw) + CHUNK_HDR_SIZE;
-					if (((uintptr_t)next >= ((uintptr_t)(current_chunk) & ~((heap->heap_size) - 1)) + heap->heap_size) || // If chunk is last
-						next->u.used.size.flags.prev_used == false) // or is free
+					if ((uintptr_t)next >= ((uintptr_t)(current_chunk) & ~((heap->heap_size) - 1)) + heap->heap_size) { // If chunk is last
+						if (heap->top_chunk != NULL)
+							color = TERM_CL_BLUE;
+						else
+							color = color_used;
+					}
+					else if (next->u.used.size.flags.prev_used == false) // or is free
 						color = free_color;
 					else
 						color = color_used;
@@ -226,7 +231,7 @@ void	dump_n_chunk_bck(t_chunk_hdr* chunk, size_t n, bool has_mutex) {
 
 static void	_dump_tiny_bins(t_arena* arena) {
 	t_chunk_hdr*	bins;
-	for (int i = 2; i < 17; i++) {
+	for (int i = 2; i < 16; i++) {
 		bins = arena->bins[i];
 		if (bins) {
 			ft_printf("%dB: ", i * 8);
@@ -271,7 +276,6 @@ void	dump_bins(t_arena* arena, bool has_mutex) {
 	if (has_mutex == false) {
 		pthread_mutex_unlock(&arena->mutex);
 	}
-	write(1, "\n", 1);
 	UNLOCK_PRINT;
 }
 
