@@ -1,58 +1,129 @@
-#include <unistd.h>
 #include <stdio.h>
-#include <ft_malloc.h>
-#include <sys/mman.h>
-#include <errno.h>
+#include <stdlib.h>
 #include <string.h>
+#include <ft_malloc.h>
 #include <time.h>
 
-#define NBR_CHUNKS 1000
-#define MIN_BLOCK_SIZE SMALL_MIN
-#define MAX_BLOCK_SIZE SMALL_LIMIT
-#define ARENA_TYPE CHUNK_SMALL
+#define NUM_BLOCKS 100
+#define MAX_BLOCK_SIZE 256
 
-t_chunk_hdr	chunks[NBR_CHUNKS] = {0};
-t_arena		arena = {0};
+typedef struct {
+	void *ptr;
+	size_t size;
+} Block;
 
-
-void	bin_insert_tiny(t_arena* arena, t_chunk_hdr* chunk);
-void	bin_insert_small(t_arena* arena, t_chunk_hdr* chunk);
-void	bin_remove_chunk(t_arena* arena, t_chunk_hdr*	chunk);
-
-#define SET_SIZE(chunk, size)((chunk).u.free.size.raw = size | ((chunk).u.free.size.raw & 0b111))
-
-void	set_random_size(t_chunk_hdr chunks[]) {
-	(void)chunks;
-	for (int i = 0; i < NBR_CHUNKS; i++) {
-		size_t size = MIN_BLOCK_SIZE + (rand() % (MAX_BLOCK_SIZE - MIN_BLOCK_SIZE)) + 1;
-		size -= size % 16;	
-		SET_SIZE(chunks[i], size);
+void random_allocation(Block blocks[], int *allocated_blocks) {
+	for (int i = 0; i < NUM_BLOCKS; i++) {
+		if (blocks[i].ptr == NULL) {
+			size_t size = rand() % MAX_BLOCK_SIZE + 1;
+			// ft_printf("%d: allocating %lu bytes\n", i, size);
+			blocks[i].ptr = ft_malloc(size);
+			blocks[i].size = size;
+			if (blocks[i].ptr != NULL) {
+				memset(blocks[i].ptr, 0xAA, size); // Remplir pour tester l'intégrité
+				(*allocated_blocks)++;
+			} else {
+				printf("ft_malloc failed for size %zu\n", size);
+			}
+			// check_heap_integrity(GET_TINY_ARENA, false);
+			// check_heap_integrity(GET_SMALL_ARENA, false);
+		}
 	}
 }
 
-void	add_to_bins() {
-	for (int i = 0; i < NBR_CHUNKS; i++) {
-		bin_insert_small(&arena, &chunks[i]);
+void random_free(Block blocks[], int *allocated_blocks) {
+	for (int i = 0; i < NUM_BLOCKS; i++) {
+		if (blocks[i].ptr != NULL && rand() % 2 == 0) { // Libérer aléatoirement
+			// ft_printf("%d: freeing chunk %p\n", i, blocks[i].ptr - CHUNK_HDR_SIZE);
+			ft_free(blocks[i].ptr);
+			blocks[i].ptr = NULL;
+			blocks[i].size = 0;
+			(*allocated_blocks)--;
+			// check_heap_integrity(GET_TINY_ARENA, false);
+			// check_heap_integrity(GET_SMALL_ARENA, false);
+		}
 	}
 }
 
-void	config_arena() {
-	arena.type.value = ARENA_TYPE;
-}
+void random_realloc(Block blocks[]) {
+	for (int i = 0; i < NUM_BLOCKS; i++) {
+		if (blocks[i].ptr != NULL && rand() % 2 == 0) {
+			size_t new_size = rand() % MAX_BLOCK_SIZE + 1;
+			t_chunk_hdr*	chunk = blocks[i].ptr - CHUNK_HDR_SIZE;
+			ft_printf("%d: realloc chunk %p (%lu-%lu->%lu)\n", i,
+				chunk, blocks[i].size, CHUNK_SIZE(chunk->u.used.size.raw), new_size);
+			dump_short_chunk_surrounding(chunk, 3, true);
+			void *new_ptr = ft_realloc(blocks[i].ptr, new_size);
 
-void	remove_random_bin() {
-	for (int i = 0; i < NBR_CHUNKS; i++) {
-		int index = rand() % NBR_CHUNKS;
-		bin_remove_chunk(&arena, &chunks[index]);
+			if (new_ptr != NULL) {
+				blocks[i].ptr = new_ptr;
+				blocks[i].size = new_size;
+				memset(blocks[i].ptr, 0xBB, new_size); // Remplir avec un autre pattern
+			} else {
+				printf("ft_realloc failed for size %zu\n", new_size);
+			}
+			check_heap_integrity(GET_TINY_ARENA, false);
+			check_heap_integrity(GET_SMALL_ARENA, false);
+			dump_short_chunk_surrounding(chunk, 3, true);
+			if ((void*)chunk + CHUNK_HDR_SIZE != new_ptr) {
+				ft_printf("address changed");
+				dump_short_chunk_surrounding(new_ptr - CHUNK_HDR_SIZE, 3, true);
+			}
+		}
 	}
 }
 
-int	main(void) {
+void check_integrity(Block blocks[]) {
+	for (int i = 0; i < NUM_BLOCKS; i++) {
+		if (blocks[i].ptr != NULL) {
+			unsigned char *data = (unsigned char *)blocks[i].ptr;
+			for (size_t j = 0; j < blocks[i].size; j++) {
+				if (data[j] != 0xAA && data[j] != 0xBB) {
+					printf("Memory corruption detected in block %d at byte %zu\n", i, j);
+					return;
+				}
+			}
+		}
+	}
+	printf("Memory integrity check passed.\n");
+}
+
+int main() {
+	Block blocks[NUM_BLOCKS] = {0};
+	int allocated_blocks = 0;
+
 	srand((unsigned int)time(NULL));
-	set_random_size(&chunks[0]);
-	add_to_bins();
-	dump_bins(&arena, true);
-	remove_random_bin();
-	dump_bins(&arena, true);
-	return (0);
+	for (int i = 0; i < 10; i++) { // Effectuer plusieurs passes
+		printf("Pass %d\n", i + 1);
+
+		random_allocation(blocks, &allocated_blocks);
+		printf("Allocated blocks: %d\n", allocated_blocks);
+		check_heap_integrity(GET_TINY_ARENA, false);
+		check_heap_integrity(GET_SMALL_ARENA, false);
+
+		random_free(blocks, &allocated_blocks);
+		printf("Allocated blocks after free: %d\n", allocated_blocks);
+		check_heap_integrity(GET_TINY_ARENA, false);
+		check_heap_integrity(GET_SMALL_ARENA, false);
+	
+		// dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 200, false);
+		// dump_bins(GET_SMALL_ARENA, false);
+		random_realloc(blocks);
+		printf("Allocated blocks after realloc: %d\n", allocated_blocks);
+		check_heap_integrity(GET_TINY_ARENA, false);
+		check_heap_integrity(GET_SMALL_ARENA, false);
+
+		check_integrity(blocks);
+		printf("\n");
+	}
+
+	// Libérer tous les blocs restants
+	for (int i = 0; i < NUM_BLOCKS; i++) {
+		if (blocks[i].ptr != NULL) {
+			ft_free(blocks[i].ptr);
+		}
+	}
+
+	printf("Test completed.\n");
+	return 0;
 }

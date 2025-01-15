@@ -129,6 +129,8 @@ void			dump_n_chunk_bck(t_chunk_hdr* chunk, size_t n, bool has_mutex);
 void			dump_bins(t_arena* arena, bool has_mutex);
 void			dump_short_n_chunk(t_chunk_hdr* chunk, size_t n, bool has_mutex);
 void			dump_short_n_chunk_bck(t_chunk_hdr* chunk, size_t n, bool has_mutex);
+void			dump_short_chunk_surrounding(t_chunk_hdr* chunk, size_t n, bool has_mutex);
+void			check_heap_integrity(t_arena* arena, bool has_mutex);
 
 #define GET_TINY_ARENA arena_get_tiny()
 #define GET_SMALL_ARENA arena_get_small()

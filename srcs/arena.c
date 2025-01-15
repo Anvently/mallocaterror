@@ -346,6 +346,7 @@ static void	_arena_shrink_chunk(t_arena* arena, t_chunk_hdr* chunk, size_t new_s
 	trailing_chunk = _split_chunk(chunk, new_size);
 	if (trailing_chunk == chunk)
 		return;
+	trailing_chunk->u.free.size.flags.prev_used = true;
 	next = chunk_forward(arena->heap_size, trailing_chunk);
 	if (next != NULL) {
 		next->u.free.size.flags.prev_used = 0;

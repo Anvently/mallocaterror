@@ -256,7 +256,7 @@ static void	_dump_small_bins(t_arena* arena) {
 				prev = bins;
 				bins = bins->u.free.next_free;
 				if (bins && bins->u.free.prev_free != prev)
-					ft_dprintf(2, "FATAL : Bin corruption\n");
+					ft_dprintf(2, TERM_CL_RED"FATAL : Bin corruption\n"TERM_CL_RESET);
 			}
 			write(1, "\n", 1);
 		}
@@ -371,3 +371,197 @@ void	dump_short_n_chunk_bck(t_chunk_hdr* chunk, size_t n, bool has_mutex) {
 	UNLOCK_PRINT;
 }
 
+/// @brief Dump the surrounding chunk of given chunk 
+/// @param chunk 
+/// @param n 
+void dump_short_chunk_surrounding(t_chunk_hdr* chunk, size_t n, bool has_mutex) {
+	size_t			i = 0, j;
+	t_chunk_hdr*	next, *prev;
+	t_arena*		arena;
+	unsigned int	type;
+	const char*		colors[3] = {TERM_CL_MAGENTA, TERM_CL_GREEN, TERM_CL_BLUE};
+
+	LOCK_PRINT;
+	if (chunk == NULL) {
+		ft_putendl_fd("\nError: cannot dump null chunk", 2);
+		UNLOCK_PRINT;
+		return;
+	}
+	arena = get_arena(chunk);
+	if (has_mutex == false)
+		pthread_mutex_lock(&arena->mutex);
+	for (j = 1; j < n + 1; j++) {
+		prev = chunk_backward(chunk);
+		if (prev == NULL)
+			break;
+		chunk = prev;
+	}
+	while (i < j + n && chunk) {
+		next = chunk_forward(arena->heap_size, chunk);
+		if ((next && next->u.used.size.flags.prev_used == true)) //used
+			type = 0;
+		else if (next) //free
+			type = 1;
+		else if (next == NULL && arena->top_chunk == chunk) //top chunk
+			type = 2;
+		else
+			type = 0; //used top chunk
+		ft_printf("%s%s%p(%luB)%s%s", (i != 0 ? "->" : (chunk == (t_chunk_hdr*)(arena + 1) ? "" : "...")),
+										colors[type],
+										chunk,
+										CHUNK_SIZE(chunk->u.used.size.raw),
+										TERM_CL_RESET,
+										(i + 1 < j + n || next == NULL ? "" : "..."));
+		chunk = next;
+		i++;
+	}
+	write(1, "\n", 1);
+	if (has_mutex == false)
+		pthread_mutex_unlock(&arena->mutex);
+	UNLOCK_PRINT;
+}
+
+static bool	_search_in_vector(void* data, t_vector* vector) {
+	for (size_t j = 0; j < ft_vector_size(vector); j++) {
+		if (((void**)(vector))[j] == data) {
+			return (true);
+		}
+	}
+	return (false);
+}
+
+/// @brief Loop every bin and check for corruption, including :
+/// 	- inconsistency between arena type and bins index
+/// 	- inconsistency between bin type and chunk size
+/// 	- inconsistency between arena type and chunk size
+/// 	- chunk in multiple bins
+/// 	- chunk not marked as free or double top chunk
+/// 	- inconsistency with pointers of the linked list
+/// @param arena 
+/// @param available_chunks 
+static void	_check_bins_integrity(t_arena* arena, t_vector** available_chunks) {
+	t_chunk_hdr	*current, *prev, *next;
+	char	type = arena->type.value;
+	size_t	chunk_size;
+
+	for (int i = 0; i < 16; i++) {
+		current = arena->bins[i];
+		if (current == NULL)
+			continue;
+		if (i < 2) {
+			ft_dprintf(2, TERM_CL_RED"Bin corruption: arena has a non-null bin at index %d\n"TERM_CL_RESET, i);
+		}
+		else if (type == CHUNK_TINY && i > 14) {
+			ft_dprintf(2, TERM_CL_RED"Bin corruption: tiny arena has a non-null bin at index %d\n"TERM_CL_RESET, i);
+		}
+		else if (type == CHUNK_SMALL && i < 8) {
+			ft_dprintf(2, TERM_CL_RED"Bin corruption: small arena has a non-null bin at index %d\n"TERM_CL_RESET, i);
+		}
+		prev = NULL;
+		while (current) {
+			if ((void*)current < (void*)arena || (void*)current > (void*)arena + arena->heap_size) {
+				ft_dprintf(2, TERM_CL_RED"Bin corruption: chunk %p is outside heap\n"TERM_CL_RESET, current);
+				break;
+			}
+			if (current->u.free.prev_free != prev)
+				ft_dprintf(2, TERM_CL_RED"Bin corruption: chunk %p previous field (%p) is not the same as the previous element (%p)\n"TERM_CL_RESET,
+					current, current->u.free.prev_free, prev);
+			if (current->u.free.size.flags.type != arena->type.value)
+				ft_dprintf(2, TERM_CL_RED"Bin corruption: chunk %p has a different type that its heap.\n"TERM_CL_RESET, current);
+			chunk_size = CHUNK_SIZE(current->u.free.size.raw);
+			if (chunk_size > (type == CHUNK_TINY ? TINY_LIMIT : SMALL_LIMIT) || chunk_size < TINY_MIN)
+				ft_dprintf(2, TERM_CL_RED"Bin corruption: chunk %p of type %d has an invalid size (%lu) .\n"TERM_CL_RESET,
+					current, type, chunk_size);
+			if (type == CHUNK_TINY && chunk_size != i * 8UL)
+				ft_dprintf(2, TERM_CL_RED"Bin corruption: chunk %p has an invalid size (%lu) compared with its bin (%luB).\n"TERM_CL_RESET,
+					current, chunk_size, i * 8UL);
+			else if (type == CHUNK_SMALL && !(chunk_size >= power_2(i - 1) && chunk_size <= power_2(i)))
+				ft_dprintf(2, TERM_CL_RED"Bin corruption: chunk %p has an invalid size (%lu) compared with its bin range (%luB-%luB).\n"TERM_CL_RESET,
+					current, chunk_size, power_2(i - 1), power_2(i));
+			next = chunk_forward(arena->heap_size, current);
+			if (next && next->u.used.size.flags.prev_used == true)
+				ft_dprintf(2, TERM_CL_RED"Bin corruption: chunk %p is not marked as free.\n"TERM_CL_RESET, current);
+			else if (next == NULL && arena->top_chunk != NULL)
+				ft_dprintf(2, TERM_CL_RED"Bin corruption: chunk %p is the last chunk but arena has a top chunk (%p).\n"TERM_CL_RESET, current, arena->top_chunk);
+			if (_search_in_vector(current, *available_chunks) == true)
+				ft_dprintf(2, TERM_CL_RED"Bin corruption: chunk %p appears in multiple bins.\n"TERM_CL_RESET,
+					current);
+			ft_vector_push(available_chunks, &current);
+			prev = current;
+			current = current->u.free.next_free;
+		}
+	}
+}
+
+/// @brief Check for corruption in the chunks of a heap, including :
+/// 	- free chunk must be referenced in a bin (except for the top chunk)
+/// 	- size must consistent with the arena type
+/// 	- chunk type must be consistence wih arena type and no chunk must be mmaped
+/// @param arena 
+/// @param available_chunks 
+static void	_check_chunk_list_integrity(t_arena* arena, t_vector** available_chunks) {
+	t_chunk_hdr	*current, *prev, *next;
+	char	type = arena->type.value;
+	size_t	chunk_size;
+	
+	current = (t_chunk_hdr*)(arena + 1);
+	prev = NULL;
+	while (prev != arena->top_chunk && (void*)current < (void*)arena + arena->heap_size) {
+		next = chunk_forward(arena->heap_size, current);
+		if (next && next->u.used.size.flags.prev_used == false) {
+			if (_search_in_vector(current, *available_chunks) == false) {
+				ft_dprintf(2, TERM_CL_RED"Heap corruption: chunk %p is flagged as free but is not referenced by any bin.\n"TERM_CL_RESET,
+					current);
+			}
+		} else if (next == NULL) { //If top chunk
+			if (_search_in_vector(current, *available_chunks) == true)
+				ft_dprintf(2, TERM_CL_RED"Heap corruption: top chunk %p is referenced in a bin.\n"TERM_CL_RESET,
+					current);
+		}
+		chunk_size = CHUNK_SIZE(current->u.free.size.raw);
+		if (chunk_size < TINY_MIN || (((type == CHUNK_TINY && chunk_size > TINY_LIMIT)
+			|| (type == CHUNK_SMALL && chunk_size > SMALL_LIMIT)) && current != arena->top_chunk))
+			ft_dprintf(2, TERM_CL_RED"Heap corruption: chunk %p (%luB) has invalid size for its type (%d).\n"TERM_CL_RESET,
+					current, chunk_size, type);
+		if (current->u.used.size.flags.mmaped == true)
+			ft_dprintf(2, TERM_CL_RED"Heap corruption: chunk %p is mmaped.\n"TERM_CL_RESET,
+					current);
+		if (current->u.free.size.flags.type != type)
+			ft_dprintf(2, TERM_CL_RED"Heap corruption: chunk %p has not the same type that its arena\n"TERM_CL_RESET,
+					current);
+		prev = current;
+		current = next;
+	}
+	if ((void*)current > (void*)arena + arena->heap_size)
+		ft_dprintf(2, TERM_CL_RED"Heap corruption: Last chunk %p overflow the heap, size=%lu, heap_boundary=%p.\n"TERM_CL_RESET,
+			current, chunk_size, (void*)arena + arena->heap_size);
+	// if (prev == arena->top_chunk)
+}
+
+/// @brief Print any detected corruptions in the heap, including :
+/// 	- bin corruption (pointer inconsistance or flag inconsistance)
+/// 	- 
+/// @param arena 
+void	check_heap_integrity(t_arena* arena, bool has_mutex) {
+	t_vector*	available_chunks;
+
+	LOCK_PRINT;
+	if (arena == NULL) {
+		UNLOCK_PRINT;
+		return;
+	}
+	if (has_mutex == false)
+		pthread_mutex_lock(&arena->mutex);
+	available_chunks = ft_vector_create(sizeof(void*), 100);
+	if (available_chunks == NULL) {
+		ft_dprintf(2, "Vector allocation error\n");
+		exit(-1);
+	}
+	_check_bins_integrity(arena, &available_chunks);
+	_check_chunk_list_integrity(arena, &available_chunks);
+	ft_vector_free(&available_chunks);
+	if (has_mutex == false) {
+		pthread_mutex_unlock(&arena->mutex);
+	}
+	UNLOCK_PRINT;
+}

@@ -29,3 +29,5 @@ Realloc algorithm :
  - Call malloc
  - memcpy to new zone
  - Call free
+
+./a.out 2&> >(grep -B 10 -A5 "Heap corruption" | head -n16)
