@@ -102,6 +102,29 @@ void	shrink_with_trailing_free() {
 	dump_bins(GET_SMALL_ARENA, false);
 }
 
+void	shrink_top_chunk() {
+	printf("EXPAND USING THE FULL TOP CHUNK\n");
+	char* test[10000];
+	for (int i = 0; i < 201; i++) {
+		test[i] = ft_malloc(64);
+		(void)test;
+	}
+	test[201] = ft_malloc(32);
+	// ft_free(test[201]);
+	dump_short_n_chunk((t_chunk_hdr*)(GET_TINY_ARENA + 1), 300, false);
+	dump_bins(GET_TINY_ARENA, false);
+	ft_printf("Expanding chunk %p to %lu bytes\n", test[201] - CHUNK_HDR_SIZE, 80);
+	char* realloc_test = ft_realloc(test[201], 80);
+	ft_printf("ptr=%p,realloc_ptr=%p\n", test[201], realloc_test);
+	dump_short_n_chunk((t_chunk_hdr*)(GET_TINY_ARENA + 1), 300, false);
+	dump_bins(GET_TINY_ARENA, false);
+	realloc_test = ft_realloc(realloc_test, 16);
+	ft_printf("ptr=%p,realloc_ptr=%p\n", test[201], realloc_test);
+	dump_short_n_chunk((t_chunk_hdr*)(GET_TINY_ARENA + 1), 300, false);
+	dump_bins(GET_TINY_ARENA, false);
+}
+
+
 void	expand_using_free() {
 	printf("EXPAND USING SINGLE FREE CHUNK\n");
 	char* test;
@@ -197,7 +220,7 @@ void	expand_using_top_chunk_full() {
 	// ft_free(test[201]);
 	dump_short_n_chunk((t_chunk_hdr*)(GET_TINY_ARENA + 1), 300, false);
 	dump_bins(GET_TINY_ARENA, false);
-	ft_printf("Expanding chunk %p to %lu bytes\n", test[201], 80);
+	ft_printf("Expanding chunk %p to %lu bytes\n", test[201] - CHUNK_HDR_SIZE, 80);
 	char* realloc_test = ft_realloc(test[201], 80);
 	ft_printf("ptr=%p,realloc_ptr=%p\n", test[201], realloc_test);
 	dump_short_n_chunk((t_chunk_hdr*)(GET_TINY_ARENA + 1), 300, false);
@@ -242,6 +265,11 @@ int	main(void) {
 	// expand_using_free();
 	// expand_using_free_and_top();
 	// expand_using_free_multiple();
-	expand_using_multiple_free_without_top();
+	// expand_using_multiple_free_without_top();
+	shrink_top_chunk();
+	check_heap_integrity(GET_TINY_ARENA, false);
+	check_heap_integrity(GET_SMALL_ARENA, false);
+	ft_printf("ptr=%p\n", ft_malloc(30));
+	dump_short_chunk_surrounding(GET_TINY_ARENA->top_chunk, 3, false);
 	return (0);
 }

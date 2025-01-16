@@ -28,7 +28,10 @@ t_arena_tiny*	arena_take_tiny_write() {
 #endif
 
 	if (!thread_arenas.tiny_arena) {
-		pthread_mutex_lock(&arena_alloc_lock);
+		if (pthread_mutex_lock(&arena_alloc_lock)) {
+			ft_dprintf(2, TERM_CL_RED"FATAL: Fail to lock a mutex\n"TERM_CL_RESET);
+			exit(1);
+		}
 		if (!g_arenas.tiny_arena) {
 			g_arenas.tiny_arena = arena_create(CHUNK_TINY);
 			pthread_mutex_unlock(&arena_alloc_lock);
@@ -40,7 +43,10 @@ t_arena_tiny*	arena_take_tiny_write() {
 		thread_arenas.tiny_arena = g_arenas.tiny_arena;
 	}
 #ifndef AVOID_CONCURRENCY
-	pthread_mutex_lock(&thread_arenas.tiny_arena->mutex);
+	if (pthread_mutex_lock(&thread_arenas.tiny_arena->mutex)) {
+		ft_dprintf(2, TERM_CL_RED"FATAL: Fail to lock a mutex\n"TERM_CL_RESET);
+		exit(1);
+	}
 	return (thread_arenas.tiny_arena);
 #else // Thread arena will be substitute with a thread one if a thread concurrency is detected
 	switch (pthread_mutex_trylock(&thread_arenas.tiny_arena->mutex)) {
@@ -84,7 +90,10 @@ t_arena_small*	arena_take_small_write() {
 #endif
 
 	if (!thread_arenas.small_arena) {
-		pthread_mutex_lock(&arena_alloc_lock);
+		if (pthread_mutex_lock(&arena_alloc_lock)) {
+			ft_dprintf(2, TERM_CL_RED"FATAL: Fail to lock a mutex\n"TERM_CL_RESET);
+			exit(1);
+		}
 		if (!g_arenas.small_arena) {
 			g_arenas.small_arena = arena_create(CHUNK_SMALL);
 			pthread_mutex_unlock(&arena_alloc_lock);
@@ -96,7 +105,10 @@ t_arena_small*	arena_take_small_write() {
 		thread_arenas.small_arena = g_arenas.small_arena;
 	}
 #ifndef AVOID_CONCURRENCY
-	pthread_mutex_lock(&thread_arenas.small_arena->mutex);
+	if (pthread_mutex_lock(&thread_arenas.small_arena->mutex)) {
+		ft_dprintf(2, TERM_CL_RED"FATAL: Fail to lock a mutex\n"TERM_CL_RESET);
+		exit(1);
+	}
 	return (thread_arenas.small_arena);
 #else // Thread arena will be substitute with a thread one if a thread concurrency is detected
 	switch (pthread_mutex_trylock(&thread_arenas.small_arena->mutex)) {
@@ -136,7 +148,10 @@ t_arena_tiny*	arena_take_tiny_read(t_arena_tiny* arena) {
 		arena = thread_arenas.tiny_arena;
 	if (arena == NULL)
 		return (NULL);
-	pthread_mutex_lock(&arena->mutex);
+	if (pthread_mutex_lock(&arena->mutex)) {
+		ft_dprintf(2, TERM_CL_RED"FATAL: Fail to lock a mutex\n"TERM_CL_RESET);
+		exit(1);
+	}
 	return (arena);
 }
 
@@ -148,7 +163,10 @@ t_arena_small*	arena_take_small_read(t_arena_small* arena) {
 		arena = thread_arenas.small_arena;
 	if (arena == NULL)
 		return (NULL);
-	pthread_mutex_lock(&arena->mutex);
+	if (pthread_mutex_lock(&arena->mutex)) {
+		ft_dprintf(2, TERM_CL_RED"FATAL: Fail to lock a mutex\n"TERM_CL_RESET);
+		exit(1);
+	}
 	return (arena);
 }
 
@@ -214,6 +232,8 @@ t_chunk_hdr*	merge_chunk(t_arena* arena, t_chunk_hdr* chunk) {
 	prev_chunk->u.free.size.raw = new_size | (prev_chunk->u.free.size.raw & 0b111);
 	if (next_chunk)
 		next_chunk->u.used.prev_size = new_size;
+	else
+		arena->top_chunk = prev_chunk;
 	return (prev_chunk);
 }
 
@@ -250,11 +270,16 @@ void*	_split_chunk(t_chunk_hdr* chunk, size_t target_size) {
 static	void*	_split_top_chunk(t_arena* arena, size_t size) {
 	t_chunk_hdr*	chunk;
 
+	// ft_printf("before splitting top chunk for size %lu\n", size);
+	// dump_short_chunk_surrounding(arena->top_chunk, 3, true);
 	chunk = _split_chunk(arena->top_chunk, size);
+	// ft_printf("new=%p(%lu)\n", arena->top_chunk, CHUNK_SIZE(arena->top_chunk->u.free.size.raw));
 	if (chunk == NULL)
 		return (NULL);
 	if (chunk != arena->top_chunk) {
 		chunk->u.used.size.flags.prev_used = 1;
+		chunk->u.free.next_free = NULL;
+		chunk->u.free.prev_free = NULL;
 		arena->top_chunk = chunk;
 		return ((void*)chunk - chunk->u.free.prev_size);
 	} else {
@@ -269,7 +294,10 @@ static t_arena*	_alloc_new_arena(t_arena* arena) {
 	new_arena = arena_create(arena->type.value);
 	if (new_arena == NULL)
 		return (NULL);
-	pthread_mutex_lock(&arena_alloc_lock);
+	if (pthread_mutex_lock(&arena_alloc_lock)) {
+		ft_dprintf(2, TERM_CL_RED"FATAL: Fail to lock a mutex\n"TERM_CL_RESET);
+		exit(1);
+	}
 	arena->next_arena = new_arena;
 	pthread_mutex_unlock(&arena_alloc_lock);
 	return (arena);
@@ -315,6 +343,8 @@ static t_chunk_hdr*	_arena_expand_chunk(t_arena* arena, t_chunk_hdr* chunk, size
 			next->u.free.size.flags.prev_used = true;
 			current = arena->top_chunk;
 			arena->top_chunk = next;
+			next->u.free.next_free = NULL;
+			next->u.free.prev_free = NULL;
 		}
 	} else if (current != chunk)
 		bin_remove_chunk(arena, current);
@@ -325,10 +355,14 @@ static t_chunk_hdr*	_arena_expand_chunk(t_arena* arena, t_chunk_hdr* chunk, size
 		}
 		next = current;
 		current = merge_chunk(arena, current);
+		if (current == next)
+			break;
 	}
 	next = chunk_forward(arena->heap_size, current);
 	if (next)
 		next->u.free.size.flags.prev_used = true;
+	else
+		arena->top_chunk = NULL;
 	return (chunk);
 }
 
@@ -358,12 +392,15 @@ static void	_arena_shrink_chunk(t_arena* arena, t_chunk_hdr* chunk, size_t new_s
 		}
 	} else { //If top chunk
 		arena->top_chunk = trailing_chunk;
+		arena->top_chunk->u.free.next_free = NULL;
+		arena->top_chunk->u.free.prev_free = NULL;
 	}
 }
 
 void*	arena_alloc(t_arena* arena, size_t size) {
 	void*	content_addr;
 
+	// ft_printf("Checking arena %p\n", arena);
 	//Search for a free chunk in the appropriate bin
 	if ((content_addr = bin_get_fit(arena, size))) {
 		pthread_mutex_unlock(&((t_arena*)arena)->mutex);
@@ -380,7 +417,10 @@ void*	arena_alloc(t_arena* arena, size_t size) {
 		return (content_addr);
 	}
 	if (arena->next_arena || (_alloc_new_arena(arena)) != NULL) {
-		pthread_mutex_lock(&arena->next_arena->mutex);
+		if (pthread_mutex_lock(&arena->next_arena->mutex)) {
+			ft_dprintf(2, TERM_CL_RED"FATAL: Fail to lock a mutex\n"TERM_CL_RESET);
+			exit(1);
+		}
 		pthread_mutex_unlock(&arena->mutex);
 		content_addr = arena_alloc(arena->next_arena, size);
 		return (content_addr);
@@ -394,7 +434,10 @@ void	arena_free(t_chunk_hdr* chunk_hdr) {
 	t_arena*		arena = get_arena(chunk_hdr);
 	t_chunk_hdr*	next;
 
-	pthread_mutex_lock(&arena->mutex);
+	if (pthread_mutex_lock(&arena->mutex)) {
+		ft_dprintf(2, TERM_CL_RED"FATAL: Fail to lock a mutex\n"TERM_CL_RESET);
+		exit(1);
+	}
 	//Mark chunk as free in the next chunk
 	next = chunk_forward(arena->heap_size, chunk_hdr);
 	if (next != NULL) {
@@ -407,6 +450,8 @@ void	arena_free(t_chunk_hdr* chunk_hdr) {
 		}
 	} else { //If top chunk
 		arena->top_chunk = chunk_hdr;
+		chunk_hdr->u.free.next_free = NULL;
+		chunk_hdr->u.free.prev_free = NULL;
 	}
 	pthread_mutex_unlock(&arena->mutex);
 }
@@ -415,7 +460,10 @@ void*	arena_realloc(t_chunk_hdr* chunk_hdr, size_t size) {
 	t_arena*		arena = get_arena(chunk_hdr);
 	size_t			old_size = CHUNK_SIZE(chunk_hdr->u.used.size.raw);
 
-	pthread_mutex_lock(&arena->mutex);
+	if (pthread_mutex_lock(&arena->mutex)) {
+		ft_dprintf(2, TERM_CL_RED"FATAL: Fail to lock a mutex\n"TERM_CL_RESET);
+		exit(1);
+	}
 	if (size > old_size) {
 		chunk_hdr = _arena_expand_chunk(arena, chunk_hdr, size);
 	} else if (size < old_size)

@@ -5,7 +5,7 @@
 #include <time.h>
 
 #define NUM_BLOCKS 10000
-#define MAX_BLOCK_SIZE 256
+#define MAX_BLOCK_SIZE 15000
 
 typedef struct {
 	void *ptr;

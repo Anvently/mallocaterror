@@ -497,6 +497,8 @@ static void	_check_bins_integrity(t_arena* arena, t_vector** available_chunks) {
 /// 	- free chunk must be referenced in a bin (except for the top chunk)
 /// 	- size must consistent with the arena type
 /// 	- chunk type must be consistence wih arena type and no chunk must be mmaped
+/// 	- first chunk must have 0 as previous size
+/// 	- top chunk must have empty free value if its free
 /// @param arena 
 /// @param available_chunks 
 static void	_check_chunk_list_integrity(t_arena* arena, t_vector** available_chunks) {
@@ -506,15 +508,18 @@ static void	_check_chunk_list_integrity(t_arena* arena, t_vector** available_chu
 	
 	current = (t_chunk_hdr*)(arena + 1);
 	prev = NULL;
-	while (prev != arena->top_chunk && (void*)current < (void*)arena + arena->heap_size) {
+	if (current->u.used.prev_size != 0)
+		ft_dprintf(2, TERM_CL_RED"Heap corruption: first chunk %p has a non zero prev_size field.\n"TERM_CL_RESET,
+					current);
+	while ((prev != arena->top_chunk || prev == NULL) && (void*)current < (void*)arena + arena->heap_size && current) {
 		next = chunk_forward(arena->heap_size, current);
 		if (next && next->u.used.size.flags.prev_used == false) {
 			if (_search_in_vector(current, *available_chunks) == false) {
 				ft_dprintf(2, TERM_CL_RED"Heap corruption: chunk %p is flagged as free but is not referenced by any bin.\n"TERM_CL_RESET,
 					current);
-				dump_short_chunk_surrounding(current, 3, true);
-				if (type == CHUNK_TINY) _dump_tiny_bins(arena);
-				else _dump_small_bins(arena);
+				// dump_short_chunk_surrounding(current, 3, true);
+				// if (type == CHUNK_TINY) _dump_tiny_bins(arena);
+				// else _dump_small_bins(arena);
 			}
 		} else if (next == NULL) { //If top chunk
 			if (_search_in_vector(current, *available_chunks) == true)
@@ -538,6 +543,9 @@ static void	_check_chunk_list_integrity(t_arena* arena, t_vector** available_chu
 	if ((void*)current > (void*)arena + arena->heap_size)
 		ft_dprintf(2, TERM_CL_RED"Heap corruption: Last chunk %p overflow the heap, size=%lu, heap_boundary=%p.\n"TERM_CL_RESET,
 			current, chunk_size, (void*)arena + arena->heap_size);
+	if (prev == arena->top_chunk && (prev->u.free.next_free || prev->u.free.prev_free))
+		ft_dprintf(2, TERM_CL_RED"Heap corruption: top chunk %p has non NULL value for next_free or prev_free\n"TERM_CL_RESET,
+			prev);
 	// if (prev == arena->top_chunk)
 }
 

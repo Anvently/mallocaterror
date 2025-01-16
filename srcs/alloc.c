@@ -66,6 +66,8 @@ t_arena*	arena_create(char type) {
 		return (NULL);
 	arena = (t_arena*)heap_addr;
 	if (pthread_mutex_init(&arena->mutex, NULL)) {
+		ft_dprintf(2, TERM_CL_RED"FATAL: Fail to init a mutex\n"TERM_CL_RESET);
+		exit(1);
 		heap_unmap(heap_addr);
 		return (NULL);
 	}
