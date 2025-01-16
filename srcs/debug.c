@@ -381,10 +381,10 @@ void dump_short_chunk_surrounding(t_chunk_hdr* chunk, size_t n, bool has_mutex) 
 	unsigned int	type;
 	const char*		colors[3] = {TERM_CL_MAGENTA, TERM_CL_GREEN, TERM_CL_BLUE};
 
-	LOCK_PRINT;
+	// LOCK_PRINT;
 	if (chunk == NULL) {
 		ft_putendl_fd("\nError: cannot dump null chunk", 2);
-		UNLOCK_PRINT;
+		// UNLOCK_PRINT;
 		return;
 	}
 	arena = get_arena(chunk);
@@ -418,7 +418,7 @@ void dump_short_chunk_surrounding(t_chunk_hdr* chunk, size_t n, bool has_mutex) 
 	write(1, "\n", 1);
 	if (has_mutex == false)
 		pthread_mutex_unlock(&arena->mutex);
-	UNLOCK_PRINT;
+	// UNLOCK_PRINT;
 }
 
 static bool	_search_in_vector(void* data, t_vector* vector) {
@@ -512,6 +512,9 @@ static void	_check_chunk_list_integrity(t_arena* arena, t_vector** available_chu
 			if (_search_in_vector(current, *available_chunks) == false) {
 				ft_dprintf(2, TERM_CL_RED"Heap corruption: chunk %p is flagged as free but is not referenced by any bin.\n"TERM_CL_RESET,
 					current);
+				dump_short_chunk_surrounding(current, 3, true);
+				if (type == CHUNK_TINY) _dump_tiny_bins(arena);
+				else _dump_small_bins(arena);
 			}
 		} else if (next == NULL) { //If top chunk
 			if (_search_in_vector(current, *available_chunks) == true)

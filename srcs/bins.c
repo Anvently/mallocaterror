@@ -170,7 +170,7 @@ void	bin_remove_chunk(t_arena* arena, t_chunk_hdr*	chunk) {
 /// of iterations reached).
 void*	bin_coalesce_chunks(t_arena* arena, size_t size) {
 	t_chunk_hdr*	bin;
-	t_chunk_hdr		*new_chunk;
+	t_chunk_hdr		*new_chunk, *prev;
 	int				iterations = 0;
 
 	// Retrieve the inferior bin
@@ -179,11 +179,12 @@ void*	bin_coalesce_chunks(t_arena* arena, size_t size) {
 		return (NULL);
 	while (bin && iterations < COALESCE_MAX_ITERATIONS) {
 		// if a merge is possible
+		prev = chunk_backward(bin);
 		if (bin->u.free.size.flags.prev_used == false && 
-			(CHUNK_SIZE(bin->u.free.size.raw) + CHUNK_SIZE(bin->u.free.size.raw) + CHUNK_HDR_SIZE
+			(CHUNK_SIZE(bin->u.free.size.raw) + CHUNK_SIZE(prev->u.free.size.raw) + CHUNK_HDR_SIZE
 				<= (arena->type.value == CHUNK_TINY ? TINY_LIMIT : SMALL_LIMIT))) {
 			bin_remove_chunk(arena, bin);
-			bin_remove_chunk(arena, chunk_backward(bin));
+			bin_remove_chunk(arena, prev);
 			new_chunk = merge_chunk(arena, bin);
 			// If its a fit
 			if (CHUNK_SIZE(new_chunk->u.free.size.raw) >= size) {
