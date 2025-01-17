@@ -32,7 +32,11 @@ void*	ft_malloc(size_t size)
 	t_arena*	arena_addr;
 	void*		ret = NULL;
 
-	printf("allocating %lu bytes\n", size);
+	char buffer[64] = {0};
+	ft_strlcpy(buffer, "allocating ", 64);
+	ft_putunbr_buffer(size, buffer + 11, 64 - 11);
+	write(1, buffer, ft_strlen(buffer));
+	write(1, " bytes\n", 7);
 	if (size % ADDR_ALIGNMENT) //alignment: 16 bytes on x64 or 8 bytes on x86 
 		size = size - (size % (ADDR_ALIGNMENT)) + ADDR_ALIGNMENT;
 	if (size > SMALL_LIMIT) {

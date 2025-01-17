@@ -31,3 +31,4 @@ Realloc algorithm :
  - Call free
 
 ./a.out 2&> >(grep -B 10 -A5 "Heap corruption" | head -n16)
+gdb --args env LD_PRELOAD=/home/npirard/Documents/ft_malloc/libft_malloc.so ./minishell
