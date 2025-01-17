@@ -13,7 +13,7 @@ DEPS		=	$(addprefix $(OBJS_FOLDER), $(SRCS_FILES:.cpp=.d))
 LIBFT		=	libft/libft.a
 
 CC			=	gcc
-CFLAGS		=	-Wall -Wextra -Werror -g3 -MMD -I$(INCLUDES) -fPIC -fsanitize=address
+CFLAGS		=	-Wall -Wextra -Werror -g3 -MMD -I$(INCLUDES) -fPIC 
 LDFLAGS		=	-shared
 
 .PHONY		=	all clean fclean re bonus
@@ -54,7 +54,7 @@ $(LIBFT): $(INCLUDES)libft.h
 
 test: $(TARGET) srcs/main.c
 	$(CC) $(CFLAGS) srcs/main.c -c -o .objs/main.o
-	$(CC) $(CFLAGS) -Wl,-rpath=. .objs/main.o -Llibft/ -lft -L. -lft_malloc
+	$(CC) $(CFLAGS) .objs/main.o -Llibft/ -lft -L. -lft_malloc
 
 update-submodules:
 	git submodule update --init --recursive
@@ -71,5 +71,7 @@ fclean: clean
 	make fclean -C libft/
 	rm -rf $(NAME)
 	@echo "$(NAME) and object files have been removed."
+	-rm -rf $(TARGET)
+	-rm -rf $(NAME).so
 
 re: fclean all

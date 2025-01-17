@@ -29,11 +29,7 @@ t_arena_tiny*	arena_take_tiny_write() {
 #endif
 
 	if (!thread_arenas.tiny_arena) {
-		if (pthread_mutex_lock(&arena_alloc_lock)) {
-			ft_dprintf(2, TERM_CL_RED"FATAL: Fail to lock a mutex at line %d in function %s (%s)\n"TERM_CL_RESET
-				"errno=%d (%s)\n", __LINE__, __FILE__, __func__, errno, strerror(errno));
-			exit(1);
-		}
+		pthread_mutex_lock(&arena_alloc_lock);
 		if (!g_arenas.tiny_arena) {
 			g_arenas.tiny_arena = arena_create(CHUNK_TINY);
 			pthread_mutex_unlock(&arena_alloc_lock);
@@ -45,11 +41,7 @@ t_arena_tiny*	arena_take_tiny_write() {
 		thread_arenas.tiny_arena = g_arenas.tiny_arena;
 	}
 #ifndef AVOID_CONCURRENCY
-	if (pthread_mutex_lock(&thread_arenas.tiny_arena->mutex)) {
-		ft_dprintf(2, TERM_CL_RED"FATAL: Fail to lock a mutex at line %d in function %s (%s)\n"TERM_CL_RESET
-				"errno=%d (%s)\n", __LINE__, __FILE__, __func__, errno, strerror(errno));
-		exit(1);
-	}
+	pthread_mutex_lock(&thread_arenas.tiny_arena->mutex);
 	return (thread_arenas.tiny_arena);
 #else // Thread arena will be substitute with a thread one if a thread concurrency is detected
 	switch (pthread_mutex_trylock(&thread_arenas.tiny_arena->mutex)) {
@@ -93,11 +85,7 @@ t_arena_small*	arena_take_small_write() {
 #endif
 
 	if (!thread_arenas.small_arena) {
-		if (pthread_mutex_lock(&arena_alloc_lock)) {
-			ft_dprintf(2, TERM_CL_RED"FATAL: Fail to lock a mutex at line %d in function %s (%s)\n"TERM_CL_RESET
-				"errno=%d (%s)\n", __LINE__, __FILE__, __func__, errno, strerror(errno));
-			exit(1);
-		}
+		pthread_mutex_lock(&arena_alloc_lock);
 		if (!g_arenas.small_arena) {
 			g_arenas.small_arena = arena_create(CHUNK_SMALL);
 			pthread_mutex_unlock(&arena_alloc_lock);
@@ -109,11 +97,7 @@ t_arena_small*	arena_take_small_write() {
 		thread_arenas.small_arena = g_arenas.small_arena;
 	}
 #ifndef AVOID_CONCURRENCY
-	if (pthread_mutex_lock(&thread_arenas.small_arena->mutex)) {
-		ft_dprintf(2, TERM_CL_RED"FATAL: Fail to lock a mutex at line %d in function %s (%s)\n"TERM_CL_RESET
-				"errno=%d (%s)\n", __LINE__, __FILE__, __func__, errno, strerror(errno));
-		exit(1);
-	}
+	pthread_mutex_lock(&thread_arenas.small_arena->mutex);
 	return (thread_arenas.small_arena);
 #else // Thread arena will be substitute with a thread one if a thread concurrency is detected
 	switch (pthread_mutex_trylock(&thread_arenas.small_arena->mutex)) {

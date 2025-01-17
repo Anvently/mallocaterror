@@ -60,13 +60,14 @@ void	heap_unmap(t_arena* heap) {
 t_arena*	arena_create(char type) {
 	void*			heap_addr;
 	t_arena*		arena;
+	static const char*	error = TERM_CL_RED"FATAL: Fail to init a mutex\n"TERM_CL_RESET;
 
 	heap_addr = heap_map(get_heap_size(type));
 	if (!heap_addr)
 		return (NULL);
 	arena = (t_arena*)heap_addr;
 	if (pthread_mutex_init(&arena->mutex, NULL)) {
-		ft_dprintf(2, TERM_CL_RED"FATAL: Fail to init a mutex\n"TERM_CL_RESET);
+		write (2, error, ft_strlen(error));
 		heap_unmap(heap_addr);
 		return (NULL);
 	}

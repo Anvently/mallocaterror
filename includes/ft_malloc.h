@@ -111,9 +111,20 @@ typedef struct s_malloc_config {
 
 #define GET_ALLOC_TYPE(size) (((size) <= TINY_LIMIT ? ALLOC_TYPE_TINY : ((size) <= SMALL_LIMIT ? ALLOC_TYPE_SMALL : ALLOC_TYPE_LARGE)))
 
-void			ft_free(void *ptr);
-void			*ft_malloc(size_t size);
-void			*ft_realloc(void *ptr, size_t size);
+#define __USE_FT_MALLOC
+#ifdef __USE_FT_MALLOC
+	void			free(void *ptr);
+	void			*malloc(size_t size);
+	void			*realloc(void *ptr, size_t size);
+	
+	#define			ft_free(ptr) free(ptr)
+	#define			ft_malloc(size) malloc(size)
+	#define			ft_realloc(ptr, size) realloc(ptr, size)
+#else
+	void			ft_free(void *ptr);
+	void			*ft_malloc(size_t size);
+	void			*ft_realloc(void *ptr, size_t size);
+#endif
 
 t_arena_tiny*	arena_get_tiny();
 t_arena_small*	arena_get_small();

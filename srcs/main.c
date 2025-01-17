@@ -18,7 +18,7 @@ void random_allocation(Block blocks[], int *allocated_blocks) {
 			size_t size = rand() % MAX_BLOCK_SIZE + 1;
 			// ft_printf("%d: allocating %lu bytes\n", i, size);
 			// dump_short_chunk_surrounding(blocks[i].ptr, 3, false);
-			blocks[i].ptr = ft_malloc(size);
+			blocks[i].ptr = malloc(size);
 			blocks[i].size = size;
 			if (blocks[i].ptr != NULL) {
 				memset(blocks[i].ptr, 0xAA, size); // Remplir pour tester l'intégrité
@@ -39,7 +39,7 @@ void random_free(Block blocks[], int *allocated_blocks) {
 			// ft_printf("%d: freeing chunk %p(%luB)\n",
 				// i, blocks[i].ptr - CHUNK_HDR_SIZE, CHUNK_SIZE(((t_chunk_hdr*)( blocks[i].ptr - CHUNK_HDR_SIZE))->u.used.size.raw));
 			// dump_short_chunk_surrounding(blocks[i].ptr - CHUNK_HDR_SIZE, 3, false);
-			ft_free(blocks[i].ptr);
+			free(blocks[i].ptr);
 			blocks[i].ptr = NULL;
 			blocks[i].size = 0;
 			(*allocated_blocks)--;
@@ -59,7 +59,7 @@ void random_realloc(Block blocks[]) {
 			// ft_printf("%d: realloc chunk %p (%lu-%lu->%lu)\n", i,
 				// chunk, blocks[i].size, CHUNK_SIZE(chunk->u.used.size.raw), new_size);
 			// dump_short_n_chunk(chunk, 2, true);
-			void *new_ptr = ft_realloc(blocks[i].ptr, new_size);
+			void *new_ptr = realloc(blocks[i].ptr, new_size);
 
 			if (new_ptr != NULL) {
 				// chunk = new_ptr - CHUNK_HDR_SIZE;
@@ -115,7 +115,7 @@ int main() {
 	int allocated_blocks = 0;
 
 	srand((unsigned int)time(NULL));
-	for (int i = 0; i < 100; i++) { // Effectuer plusieurs passes
+	for (int i = 0; i < 1; i++) { // Effectuer plusieurs passes
 		printf("Pass %d\n", i + 1);
 
 		random_allocation(blocks, &allocated_blocks);
@@ -142,12 +142,12 @@ int main() {
 	// Libérer tous les blocs restants
 	for (int i = 0; i < NUM_BLOCKS; i++) {
 		if (blocks[i].ptr != NULL) {
-			ft_free(blocks[i].ptr);
+			free(blocks[i].ptr);
 		}
 	}
 	printf("Test completed.\n");
-	// show_alloc_memory();
+	show_alloc_memory();
 	(void)print_top_chunks;
-	// print_top_chunks();
+	print_top_chunks();
 	return 0;
 }

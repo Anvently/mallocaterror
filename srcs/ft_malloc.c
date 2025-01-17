@@ -22,10 +22,17 @@ x86
 size = 24 (chunk = 8 + 24 = 32)
 
 */
-void*	ft_malloc(size_t size) {
+
+#ifdef __USE_FT_MALLOC
+void*	malloc(size_t size)
+#else
+void*	ft_malloc(size_t size)
+#endif
+{
 	t_arena*	arena_addr;
 	void*		ret = NULL;
 
+	printf("allocating %lu bytes\n", size);
 	if (size % ADDR_ALIGNMENT) //alignment: 16 bytes on x64 or 8 bytes on x86 
 		size = size - (size % (ADDR_ALIGNMENT)) + ADDR_ALIGNMENT;
 	if (size > SMALL_LIMIT) {
@@ -41,15 +48,23 @@ void*	ft_malloc(size_t size) {
 			size = TINY_MIN;
 		arena_addr = arena_take_tiny_write();
 	}
-	if (arena_addr)
+	if (arena_addr) {
+		printf("arena=%p\n", arena_addr);
 		ret = arena_alloc(arena_addr, size);
+		printf("ret=%p\n", ret);
+	}
 	if (ret == NULL)
 		errno = ENOMEM;
+	// check_heap_integrity(arena_addr, false);
 	return (ret);
 }
 
-
-void	ft_free(void* ptr) {
+#ifdef __USE_FT_MALLOC
+void	free(void* ptr)
+#else
+void	ft_free(void* ptr)
+#endif
+{
 	t_chunk_hdr*	hdr;
 
 	if (ptr == NULL)
@@ -62,7 +77,12 @@ void	ft_free(void* ptr) {
 	arena_free(hdr);
 }
 
-void*	ft_realloc(void* ptr, size_t size) {
+#ifdef __USE_FT_MALLOC
+void*	realloc(void* ptr, size_t size)
+#else 
+void*	ft_realloc(void* ptr, size_t size)
+#endif
+{
 	t_chunk_hdr*	hdr;
 	size_t			old_size;
 	void*			ret;
