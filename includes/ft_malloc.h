@@ -52,7 +52,7 @@ typedef struct	s_chunk_hdr {
 typedef struct	s_arena {
 	size_t					heap_size;
 	pthread_mutex_t			mutex;
-	struct s_chunk_hdr*		bins[16];
+	struct s_chunk_hdr*		bins[18];
 	struct s_arena*			next_arena;
 	struct s_chunk_hdr*		top_chunk; // Pointer to top chunk
 	union {
@@ -86,8 +86,11 @@ typedef struct s_malloc_config {
 	size_t	small_heap_size;
 }	t_malloc_config;
 
-#define TINY_ZONE_MIN_SIZE ((TINY_LIMIT * 100) + (100 * CHUNK_HDR_SIZE))  
-#define SMALL_ZONE_MIN_SIZE ((SMALL_LIMIT * 100) + (100 * CHUNK_HDR_SIZE))  
+#define NBR_ALLOC_MIN_TINY 1000
+#define NBR_ALLOC_MIN_SMALL 100
+
+#define TINY_ZONE_MIN_SIZE ((TINY_LIMIT * NBR_ALLOC_MIN_TINY) + (NBR_ALLOC_MIN_TINY * CHUNK_HDR_SIZE))  
+#define SMALL_ZONE_MIN_SIZE ((SMALL_LIMIT * NBR_ALLOC_MIN_SMALL) + (NBR_ALLOC_MIN_SMALL * CHUNK_HDR_SIZE))  
 
 #define VALUE_ALIGNED(value, alignment) ((((value) + (alignment) - 1) / (alignment)) * (alignment))
 #define TINY_HEAP_SIZE(page_size) (VALUE_ALIGNED(TINY_ZONE_MIN_SIZE + sizeof(t_arena), page_size))
@@ -131,6 +134,7 @@ void			dump_short_n_chunk(t_chunk_hdr* chunk, size_t n, bool has_mutex);
 void			dump_short_n_chunk_bck(t_chunk_hdr* chunk, size_t n, bool has_mutex);
 void			dump_short_chunk_surrounding(t_chunk_hdr* chunk, size_t n, bool has_mutex);
 void			check_heap_integrity(t_arena* arena, bool has_mutex);
+void			check_all_heap_integrity(t_arena* arena, bool has_mutex);
 
 #define GET_TINY_ARENA arena_get_tiny()
 #define GET_SMALL_ARENA arena_get_small()

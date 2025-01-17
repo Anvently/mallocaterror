@@ -114,12 +114,34 @@ static void	_hexdump_color_heap(void* start_addr, size_t n_chunk) {
 
 }
 
+static size_t	_compute_arena_available_size(t_arena* arena) {
+	size_t			size = 0;
+	t_chunk_hdr*	bin;
+
+	if (arena->top_chunk)
+		size += CHUNK_SIZE(arena->top_chunk->u.free.size.raw) + CHUNK_HDR_SIZE;
+	for (int i = 0; i < 18; i++) {
+		bin = arena->bins[i];
+		while (bin) {
+			size += CHUNK_SIZE(bin->u.free.size.raw) + CHUNK_HDR_SIZE;
+			bin = bin->u.free.next_free;
+		}
+	}
+	return (size);
+}
+
 static void	_print_heap_address(t_arena* arena) {
+	size_t	used_size;
+	int		percent_used;
+
 	if (arena == NULL) {
 		ft_printf("%p <-> %p : %lu bytes\n", NULL, NULL, 0x00);
 		return;
 	}
-	ft_printf("%p <-> %p : %lu bytes\n", (void*)arena, (void*)arena + arena->heap_size, arena->heap_size);
+	used_size = (arena->heap_size - sizeof(t_arena)) - _compute_arena_available_size(arena);
+	percent_used = (used_size * 100) / (arena->heap_size - sizeof(t_arena));
+	ft_printf("%p <-> %p : %luB (%d%% used)\n",
+		(void*)arena, (void*)arena + arena->heap_size, arena->heap_size, percent_used);
 }
 
 /// @brief Print allocated heap
@@ -444,7 +466,7 @@ static void	_check_bins_integrity(t_arena* arena, t_vector** available_chunks) {
 	char	type = arena->type.value;
 	size_t	chunk_size;
 
-	for (int i = 0; i < 16; i++) {
+	for (int i = 0; i < 18; i++) {
 		current = arena->bins[i];
 		if (current == NULL)
 			continue;
@@ -517,9 +539,9 @@ static void	_check_chunk_list_integrity(t_arena* arena, t_vector** available_chu
 			if (_search_in_vector(current, *available_chunks) == false) {
 				ft_dprintf(2, TERM_CL_RED"Heap corruption: chunk %p is flagged as free but is not referenced by any bin.\n"TERM_CL_RESET,
 					current);
-				// dump_short_chunk_surrounding(current, 3, true);
-				// if (type == CHUNK_TINY) _dump_tiny_bins(arena);
-				// else _dump_small_bins(arena);
+				dump_short_chunk_surrounding(current, 3, true);
+				if (type == CHUNK_TINY) _dump_tiny_bins(arena);
+				else _dump_small_bins(arena);
 			}
 		} else if (next == NULL) { //If top chunk
 			if (_search_in_vector(current, *available_chunks) == true)
@@ -528,9 +550,11 @@ static void	_check_chunk_list_integrity(t_arena* arena, t_vector** available_chu
 		}
 		chunk_size = CHUNK_SIZE(current->u.free.size.raw);
 		if (chunk_size < TINY_MIN || (((type == CHUNK_TINY && chunk_size > TINY_LIMIT)
-			|| (type == CHUNK_SMALL && chunk_size > SMALL_LIMIT)) && current != arena->top_chunk))
-			ft_dprintf(2, TERM_CL_RED"Heap corruption: chunk %p (%luB) has invalid size for its type (%d).\n"TERM_CL_RESET,
-					current, chunk_size, type);
+			|| (type == CHUNK_SMALL && chunk_size > SMALL_LIMIT)) && next != NULL)) {
+				ft_dprintf(2, TERM_CL_RED"Heap corruption: chunk %p (%luB) has invalid size for its type (%d).\n"TERM_CL_RESET,
+						current, chunk_size, type);
+				dump_short_chunk_surrounding(current, 3, true);
+			}
 		if (current->u.used.size.flags.mmaped == true)
 			ft_dprintf(2, TERM_CL_RED"Heap corruption: chunk %p is mmaped.\n"TERM_CL_RESET,
 					current);
@@ -561,8 +585,15 @@ void	check_heap_integrity(t_arena* arena, bool has_mutex) {
 		UNLOCK_PRINT;
 		return;
 	}
-	if (has_mutex == false)
-		pthread_mutex_lock(&arena->mutex);
+	if (has_mutex == false) {
+		int err;
+		if ((err = pthread_mutex_lock(&arena->mutex))) {
+			ft_dprintf(2, TERM_CL_RED"Heap corruption: failed to lock a mutex in heap %p n"TERM_CL_RESET
+			"err=%d(%s)\n",
+			arena, err, strerror(err));
+		}
+
+	}
 	available_chunks = ft_vector_create(sizeof(void*), 100);
 	if (available_chunks == NULL) {
 		ft_dprintf(2, "Vector allocation error\n");
@@ -575,4 +606,20 @@ void	check_heap_integrity(t_arena* arena, bool has_mutex) {
 		pthread_mutex_unlock(&arena->mutex);
 	}
 	UNLOCK_PRINT;
+}
+
+void	check_all_heap_integrity(t_arena* first_arena, bool has_mutex) {
+	t_arena* next_arena;
+
+	if (first_arena == NULL) return;
+	check_heap_integrity(first_arena, has_mutex);
+	if (has_mutex == false)
+		pthread_mutex_lock(&first_arena->mutex);
+	next_arena = first_arena->next_arena;
+	while (next_arena) {
+		check_heap_integrity(next_arena, false);
+		next_arena = next_arena->next_arena;
+	}
+	if (has_mutex == false)
+		pthread_mutex_unlock(&first_arena->mutex);
 }

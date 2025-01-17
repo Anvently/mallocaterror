@@ -261,15 +261,36 @@ void	expand_by_moving() {
 	dump_n_chunk_bck(GET_TINY_ARENA->top_chunk, 300, false);
 }
 
+/// @brief ...[32m0x7f8762d3bec0(16B)[0m->[35m0x7f8762d3bee0(96B)[0m->[32m0x7f8762d3bf50(16B)[0m->[35m0x7f8762d3bf70(64B)[0m->[34m0x7f8762d3bfc0(48B)[0m
+// [31mHeap corruption: chunk 0x7f8762d3bf70 is flagged as free but is not referenced by any bin.
+// [0m...[32m0x7f8762d3bec0(16B)[0m->[35m0x7f8762d3bee0(96B)[0m->[32m0x7f8762d3bf50(16B)[0m->[32m0x7f8762d3bf70(64B)[0m->[35m0x7f8762d3bfc0(13527612320720337848B)[0m
+void	reproduce_top_chunk_error() {
+	for (int i = 0; i < 123; i++) {
+		ft_malloc(112);
+	}
+	ft_malloc(80);
+	ft_malloc(16);
+	ft_malloc(80);
+	ft_malloc(32);
+	void* test = ft_malloc(64);
+	dump_short_chunk_surrounding(GET_TINY_ARENA->top_chunk, 4, false);
+	void* realloc_test = ft_realloc(test, 96);
+	(void) realloc_test;
+	dump_short_chunk_surrounding(GET_TINY_ARENA->top_chunk, 4, false);
+}
+
+
 int	main(void) {
 	// expand_using_free();
 	// expand_using_free_and_top();
 	// expand_using_free_multiple();
 	// expand_using_multiple_free_without_top();
-	shrink_top_chunk();
+	// shrink_top_chunk();
+	// check_heap_integrity(GET_TINY_ARENA, false);
+	// check_heap_integrity(GET_SMALL_ARENA, false);
+	// ft_printf("ptr=%p\n", ft_malloc(30));
+	// dump_short_chunk_surrounding(GET_TINY_ARENA->top_chunk, 3, false);
+	reproduce_top_chunk_error();
 	check_heap_integrity(GET_TINY_ARENA, false);
-	check_heap_integrity(GET_SMALL_ARENA, false);
-	ft_printf("ptr=%p\n", ft_malloc(30));
-	dump_short_chunk_surrounding(GET_TINY_ARENA->top_chunk, 3, false);
 	return (0);
 }

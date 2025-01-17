@@ -67,7 +67,6 @@ t_arena*	arena_create(char type) {
 	arena = (t_arena*)heap_addr;
 	if (pthread_mutex_init(&arena->mutex, NULL)) {
 		ft_dprintf(2, TERM_CL_RED"FATAL: Fail to init a mutex\n"TERM_CL_RESET);
-		exit(1);
 		heap_unmap(heap_addr);
 		return (NULL);
 	}
@@ -95,7 +94,7 @@ void*	realloc_mmaped(t_chunk_hdr* hdr, size_t size) {
 	size_t	old_size = CHUNK_SIZE(hdr->u.used.size.raw);
 	void*	ret;
 
-	ret = mremap(hdr, old_size, size, MAP_ANONYMOUS | MAP_PRIVATE | MREMAP_MAYMOVE);
+	ret = mremap(hdr, old_size, size + CHUNK_HDR_SIZE, MREMAP_MAYMOVE);
 	if (ret == MAP_FAILED)
 		return (NULL);
 	hdr = (t_chunk_hdr*)ret;

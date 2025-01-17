@@ -5,7 +5,7 @@
 #include <time.h>
 
 #define NUM_BLOCKS 10000
-#define MAX_BLOCK_SIZE 15000
+#define MAX_BLOCK_SIZE 1000000
 
 typedef struct {
 	void *ptr;
@@ -36,7 +36,9 @@ void random_allocation(Block blocks[], int *allocated_blocks) {
 void random_free(Block blocks[], int *allocated_blocks) {
 	for (int i = 0; i < NUM_BLOCKS; i++) {
 		if (blocks[i].ptr != NULL && rand() % 2 == 0) { // Libérer aléatoirement
-			// ft_printf("%d: freeing chunk %p\n", i, blocks[i].ptr - CHUNK_HDR_SIZE);
+			// ft_printf("%d: freeing chunk %p(%luB)\n",
+				// i, blocks[i].ptr - CHUNK_HDR_SIZE, CHUNK_SIZE(((t_chunk_hdr*)( blocks[i].ptr - CHUNK_HDR_SIZE))->u.used.size.raw));
+			// dump_short_chunk_surrounding(blocks[i].ptr - CHUNK_HDR_SIZE, 3, false);
 			ft_free(blocks[i].ptr);
 			blocks[i].ptr = NULL;
 			blocks[i].size = 0;
@@ -47,6 +49,8 @@ void random_free(Block blocks[], int *allocated_blocks) {
 	}
 }
 
+t_arena*	get_arena(t_chunk_hdr* hdr);
+
 void random_realloc(Block blocks[]) {
 	for (int i = 0; i < NUM_BLOCKS; i++) {
 		if (blocks[i].ptr != NULL && rand() % 2 == 0) {
@@ -54,18 +58,20 @@ void random_realloc(Block blocks[]) {
 			// t_chunk_hdr*	chunk = blocks[i].ptr - CHUNK_HDR_SIZE;
 			// ft_printf("%d: realloc chunk %p (%lu-%lu->%lu)\n", i,
 				// chunk, blocks[i].size, CHUNK_SIZE(chunk->u.used.size.raw), new_size);
-			// dump_short_chunk_surrounding(chunk, 3, true);
+			// dump_short_n_chunk(chunk, 2, true);
 			void *new_ptr = ft_realloc(blocks[i].ptr, new_size);
 
 			if (new_ptr != NULL) {
+				// chunk = new_ptr - CHUNK_HDR_SIZE;
+				// ft_printf("resized chunk to %p(%luB)\n", chunk, CHUNK_SIZE(chunk->u.used.size.raw));
 				blocks[i].ptr = new_ptr;
 				blocks[i].size = new_size;
 				memset(blocks[i].ptr, 0xBB, new_size); // Remplir avec un autre pattern
 			} else {
 				printf("ft_realloc failed for size %zu\n", new_size);
 			}
-			// check_heap_integrity(GET_TINY_ARENA, false);
-			// check_heap_integrity(GET_SMALL_ARENA, false);
+			// check_heap_integrity(get_arena(chunk), false);
+			// check_heap_integrity(get_arena(chunk), false);
 			// dump_short_chunk_surrounding(chunk, 3, true);
 			// if ((void*)chunk + CHUNK_HDR_SIZE != new_ptr) {
 				// ft_printf("address changed");
@@ -90,42 +96,58 @@ void check_integrity(Block blocks[]) {
 	printf("Memory integrity check passed.\n");
 }
 
+static void print_top_chunks(void) {
+	t_arena* arena = GET_SMALL_ARENA;
+
+	while (arena) {
+		dump_short_chunk_surrounding(arena->top_chunk, 2, false);
+		arena = arena->next_arena;
+	}
+	arena = GET_TINY_ARENA;
+	while (arena) {
+		dump_short_chunk_surrounding(arena->top_chunk, 2, false);
+		arena = arena->next_arena;
+	}
+}
+
 int main() {
 	Block blocks[NUM_BLOCKS] = {0};
 	int allocated_blocks = 0;
 
 	srand((unsigned int)time(NULL));
-	for (int i = 0; i < 10; i++) { // Effectuer plusieurs passes
+	for (int i = 0; i < 100; i++) { // Effectuer plusieurs passes
 		printf("Pass %d\n", i + 1);
 
 		random_allocation(blocks, &allocated_blocks);
 		printf("Allocated blocks: %d\n", allocated_blocks);
-		check_heap_integrity(GET_TINY_ARENA, false);
-		check_heap_integrity(GET_SMALL_ARENA, false);
+		// check_all_heap_integrity(GET_TINY_ARENA, false);
+		// check_all_heap_integrity(GET_SMALL_ARENA, false);
 
 		random_free(blocks, &allocated_blocks);
 		printf("Allocated blocks after free: %d\n", allocated_blocks);
-		check_heap_integrity(GET_TINY_ARENA, false);
-		check_heap_integrity(GET_SMALL_ARENA, false);
+		// check_all_heap_integrity(GET_TINY_ARENA, false);
+		// check_all_heap_integrity(GET_SMALL_ARENA, false);
 	
 		// dump_short_n_chunk_bck(GET_SMALL_ARENA->top_chunk, 200, false);
 		// dump_bins(GET_SMALL_ARENA, false);
 		random_realloc(blocks);
 		printf("Allocated blocks after realloc: %d\n", allocated_blocks);
-		check_heap_integrity(GET_TINY_ARENA, false);
-		check_heap_integrity(GET_SMALL_ARENA, false);
+		// check_all_heap_integrity(GET_TINY_ARENA, false);
+		// check_all_heap_integrity(GET_SMALL_ARENA, false);
 
 		check_integrity(blocks);
 		printf("\n");
 	}
-
+	show_alloc_memory();
 	// Libérer tous les blocs restants
 	for (int i = 0; i < NUM_BLOCKS; i++) {
 		if (blocks[i].ptr != NULL) {
 			ft_free(blocks[i].ptr);
 		}
 	}
-
 	printf("Test completed.\n");
+	// show_alloc_memory();
+	(void)print_top_chunks;
+	// print_top_chunks();
 	return 0;
 }
