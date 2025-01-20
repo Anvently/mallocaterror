@@ -21,10 +21,7 @@
 # include <stdbool.h>
 
 # ifndef BUFFER_SIZE
-#  define BUFFER_SIZE 1000
-# elif BUFFER_SIZE < 0
-#  undef BUFFER_SIZE
-#  define BUFFER_SIZE 1000
+#  define BUFFER_SIZE 4096
 # endif
 
 #define TERM_CL_RED "\033[31m"
@@ -121,7 +118,9 @@ char	*ft_uitoa(unsigned int n);
 char	*ft_ltoa(long n);
 char	*ft_ultoa(unsigned long n);
 char	*ft_ultoa_base(unsigned long n, char *base);
-unsigned int	ft_putunbr_buffer(unsigned long nbr, char* buffer, unsigned int size);
+size_t	ft_putunbr_buffer(unsigned long nbr, char* buffer, size_t size);
+size_t	ft_putnbr_buffer(long nbr, char* buffer, size_t size);
+size_t	ft_putunbr_base_buffer(unsigned long nbr, char* buffer, size_t size, const char* base);
 
 ///------------------------ ITERATION ---------------------------
 
@@ -237,6 +236,8 @@ char	*ft_gnl(int fd);
 ---------------------------- PRINTF -----------------------------
 -----------------------------------------------------------------*/
 
+size_t	ft_sprintf(char* buffer, size_t size, const char* format, ...);
+void	ft_sdprintf(int fd, const char* format, ...);
 int		ft_printf(const char *str, ...);
 int		ft_dprintf(int fd, const char *str, ...);
 

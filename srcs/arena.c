@@ -434,6 +434,7 @@ void	arena_free(t_chunk_hdr* chunk_hdr) {
 		chunk_hdr->u.free.next_free = NULL;
 		chunk_hdr->u.free.prev_free = NULL;
 	}
+	// check_heap_integrity(arena, true);
 	pthread_mutex_unlock(&arena->mutex);
 }
 
@@ -446,6 +447,7 @@ void*	arena_realloc(t_chunk_hdr* chunk_hdr, size_t size) {
 		chunk_hdr = _arena_expand_chunk(arena, chunk_hdr, size);
 	} else if (size < old_size)
 		_arena_shrink_chunk(arena, chunk_hdr, size);
+	// check_heap_integrity(arena	, true);
 	pthread_mutex_unlock(&arena->mutex);
 	if (chunk_hdr)
 		return ((void*)chunk_hdr + CHUNK_HDR_SIZE);

@@ -24,7 +24,7 @@ endif
 
 TARGET		=	$(NAME)_$(HOSTTYPE).so
 
--include	$(wildcard *.d)
+-include	$(DEPS)
 
 all: $(TARGET)
 

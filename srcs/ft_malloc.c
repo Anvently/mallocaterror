@@ -32,11 +32,7 @@ void*	ft_malloc(size_t size)
 	t_arena*	arena_addr;
 	void*		ret = NULL;
 
-	char buffer[64] = {0};
-	ft_strlcpy(buffer, "allocating ", 64);
-	ft_putunbr_buffer(size, buffer + 11, 64 - 11);
-	write(1, buffer, ft_strlen(buffer));
-	write(1, " bytes\n", 7);
+	// ft_sdprintf(1, "allocating %lu bytes\n", size);
 	if (size % ADDR_ALIGNMENT) //alignment: 16 bytes on x64 or 8 bytes on x86 
 		size = size - (size % (ADDR_ALIGNMENT)) + ADDR_ALIGNMENT;
 	if (size > SMALL_LIMIT) {
@@ -53,13 +49,12 @@ void*	ft_malloc(size_t size)
 		arena_addr = arena_take_tiny_write();
 	}
 	if (arena_addr) {
-		printf("arena=%p\n", arena_addr);
 		ret = arena_alloc(arena_addr, size);
-		printf("ret=%p\n", ret);
 	}
 	if (ret == NULL)
 		errno = ENOMEM;
-	// check_heap_integrity(arena_addr, false);
+	// check_heap_integrity(arena_addr, true);
+	// dump_short_n_chunk(GET_FIRST_CHUNK(arena_addr), 100, true);
 	return (ret);
 }
 
